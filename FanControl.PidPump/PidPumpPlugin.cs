@@ -12,7 +12,6 @@ namespace FanControl.PidPump
         private readonly PidController _controller;
         private PidPumpSensor? _sensor;
         private IPluginSensorsContainer? _container;
-        private IPluginLogger? _logger;
         private Thread? _uiThread;
         private PidSettingsWindow? _windowInstance;
 

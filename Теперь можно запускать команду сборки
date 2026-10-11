@@ -1,0 +1,1 @@
+dotnet build FanControl.PidPump/FanControl.PidPump.csproj -c Release
