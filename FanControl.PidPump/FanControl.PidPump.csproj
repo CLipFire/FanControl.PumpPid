@@ -12,14 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  </ItemGroup>
-
-  <!-- Ссылка на FanControl.Plugins.dll, которая находится в корневом каталоге FanControl -->
-  <ItemGroup>
-    <Reference Include="FanControl.Plugins">
-      <HintPath>..\FanControl.Plugins.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <PackageReference Include="FanControl.Plugins" Version="5.4.1" />
   </ItemGroup>
 
 </Project>
