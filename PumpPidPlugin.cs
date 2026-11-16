@@ -62,7 +62,6 @@ namespace FanControl.PumpPid
         private bool _initialDiscoveryCompleted;
 
         private PumpPidOutputSensor? _pidOutputTempProxy;
-        private PumpPidInputTempBridgeSensor? _inputTempBridgeCard;
 
         public string Name => "Pump Bumpless PID Controller";
 
@@ -83,7 +82,7 @@ namespace FanControl.PumpPid
             }
             catch (Exception ex)
             {
-                try { _logger?.Log($"[PumpPID] Ошибка Initialize: {ex}"); } catch { }
+                try { _logger?.Log($"[PumpPID] Initialize error: {ex}"); } catch { }
             }
         }
 
@@ -112,7 +111,10 @@ namespace FanControl.PumpPid
 
             _eventLogger.LogEvent(
                 PidEventCategory.SettlingTime,
-                $"Плагин инициализирован. Целевой датчик: '{cfg.SourceSensorId}', Диапазон=[{cfg.MinOutputPercent}..{cfg.MaxOutputPercent}%]");
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Plugin initialized. Target sensor: '{0}', Range=[{1:F0}..{2:F0}%], Setpoint={3:F1}°C",
+                    cfg.SourceSensorId, cfg.MinOutputPercent, cfg.MaxOutputPercent, cfg.SetpointCelsius));
         }
 
         public void Load(IPluginSensorsContainer _container)
@@ -123,7 +125,7 @@ namespace FanControl.PumpPid
             }
             catch (Exception ex)
             {
-                try { _logger?.Log($"[PumpPID] Ошибка Load: {ex}"); } catch { }
+                try { _logger?.Log($"[PumpPID] Load error: {ex}"); } catch { }
             }
         }
 
@@ -136,26 +138,12 @@ namespace FanControl.PumpPid
             var cfg = _configManager?.Current ?? new PumpPidConfig();
             float initialOut = BumplessPidController.Clamp(cfg.MinOutputPercent, cfg.MinOutputPercent, cfg.MaxOutputPercent);
 
-            // 1. Единственный выходной сигнал PID-регулятора в TempSensors (выбирается как "Источник температуры" в линейной кривой 0..100°C -> 0..100%)
+            // Единственный выходной сигнал PID-регулятора в TempSensors (выбирается как "Источник температуры" в линейной кривой 0..100°C -> 0..100%)
             _pidOutputTempProxy = new PumpPidOutputSensor(
                 "pump_pid_output_signal",
                 "Pump PID Output (%)",
                 initialOut);
             _container.TempSensors.Add(_pidOutputTempProxy);
-
-            // 2. Вспомогательная карточка-мост входа температуры создается в LoadCore ТОЛЬКО если явно включен флаг AllowInputTempBridgeCard = true
-            // (так как FanControl регистрирует карточки ControlSensors только на этапе Load плагина, изменение этого флага требует перезапуска FanControl)
-            if (cfg.AllowInputTempBridgeCard)
-            {
-                _inputTempBridgeCard = new PumpPidInputTempBridgeSensor(
-                    "pump_pid_input_temp_bridge",
-                    "PID: Вход температуры (кривая 0-100)");
-                _container.ControlSensors.Add(_inputTempBridgeCard);
-            }
-            else
-            {
-                _inputTempBridgeCard = null;
-            }
         }
 
         public void Update()
@@ -166,7 +154,7 @@ namespace FanControl.PumpPid
             }
             catch (Exception ex)
             {
-                try { _logger?.Log($"[PumpPID] Ошибка Update: {ex.Message}"); } catch { }
+                try { _logger?.Log($"[PumpPID] Update error: {ex.Message}"); } catch { }
             }
         }
 
@@ -199,53 +187,45 @@ namespace FanControl.PumpPid
             float actualTemp = cfg.SetpointCelsius;
             string activeSensorLabel = "Ожидание датчика (используется уставка)";
 
-            // Приоритет 1 (только при явном флаге AllowInputTempBridgeCard = true в конфиге): чтение через вспомогательную карточку-мост
-            if (cfg.AllowInputTempBridgeCard &&
-                _inputTempBridgeCard != null &&
-                _inputTempBridgeCard.HasActiveInput &&
-                _inputTempBridgeCard.Value.HasValue &&
-                _inputTempBridgeCard.Value.Value >= 5.0f &&
-                _inputTempBridgeCard.Value.Value <= 115.0f &&
-                Math.Abs(_inputTempBridgeCard.Value.Value - (_pidOutputTempProxy?.Value ?? -999f)) > 0.5f)
+            // Прямое чтение выбранного в PumpPidConfigurator.exe датчика (пользовательского или системного) из памяти FanControl
+            DiscoveredTempSensor? matched = FindBestMatchingSensor(cfg.SourceSensorId);
+            float? sensorVal = matched?.ReadValue();
+            if (matched != null && sensorVal.HasValue)
             {
-                actualTemp = _inputTempBridgeCard.Value.Value;
-                activeSensorLabel = "Карточка FanControl: PID Вход температуры";
+                actualTemp = sensorVal.Value;
+                string prefix = matched.IsCustom ? "[Пользовательский] " : "";
+                activeSensorLabel = $"{prefix}{matched.Name} ({matched.Id})";
+
+                if (!string.Equals(_lastLoggedActiveSensor, activeSensorLabel, StringComparison.Ordinal))
+                {
+                    _lastLoggedActiveSensor = activeSensorLabel;
+                    string logSensorName = matched.IsCustom
+                        ? $"[Custom] {matched.Name} ({matched.Id})"
+                        : $"{matched.Name} ({matched.Id})";
+                    _eventLogger?.LogEvent(
+                        PidEventCategory.SettlingTime,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "Connected temperature sensor: {0} = {1:F1}°C",
+                            logSensorName,
+                            actualTemp));
+                }
             }
             else
             {
-                // Приоритет 2 (Основной): Прямое чтение выбранного датчика (пользовательского или системного) из памяти FanControl
-                DiscoveredTempSensor? matched = FindBestMatchingSensor(cfg.SourceSensorId);
-                float? sensorVal = matched?.ReadValue();
-                if (matched != null && sensorVal.HasValue)
-                {
-                    actualTemp = sensorVal.Value;
-                    string prefix = matched.IsCustom ? "[Пользовательский] " : "";
-                    activeSensorLabel = $"{prefix}{matched.Name} ({matched.Id})";
+                // Резервная проверка _container.TempSensors
+                IPluginSensor? containerSensor = _container.TempSensors.FirstOrDefault(s =>
+                    s != null &&
+                    s != _pidOutputTempProxy &&
+                    s.Value.HasValue &&
+                    (string.IsNullOrEmpty(cfg.SourceSensorId) ||
+                     string.Equals(s.Id, cfg.SourceSensorId, StringComparison.OrdinalIgnoreCase) ||
+                     (s.Name != null && s.Name.IndexOf(cfg.SourceSensorId, StringComparison.OrdinalIgnoreCase) >= 0)));
 
-                    if (!string.Equals(_lastLoggedActiveSensor, activeSensorLabel, StringComparison.Ordinal))
-                    {
-                        _lastLoggedActiveSensor = activeSensorLabel;
-                        _eventLogger?.LogEvent(
-                            PidEventCategory.SettlingTime,
-                            $"Подключен датчик температуры: {activeSensorLabel} = {actualTemp:F1}°C");
-                    }
-                }
-                else
+                if (containerSensor != null && containerSensor.Value.HasValue)
                 {
-                    // Приоритет 3: Проверка _container.TempSensors
-                    IPluginSensor? containerSensor = _container.TempSensors.FirstOrDefault(s =>
-                        s != null &&
-                        s != _pidOutputTempProxy &&
-                        s.Value.HasValue &&
-                        (string.IsNullOrEmpty(cfg.SourceSensorId) ||
-                         string.Equals(s.Id, cfg.SourceSensorId, StringComparison.OrdinalIgnoreCase) ||
-                         (s.Name != null && s.Name.IndexOf(cfg.SourceSensorId, StringComparison.OrdinalIgnoreCase) >= 0)));
-
-                    if (containerSensor != null && containerSensor.Value.HasValue)
-                    {
-                        actualTemp = containerSensor.Value.Value;
-                        activeSensorLabel = $"{containerSensor.Name} ({containerSensor.Id})";
-                    }
+                    actualTemp = containerSensor.Value.Value;
+                    activeSensorLabel = $"{containerSensor.Name} ({containerSensor.Id})";
                 }
             }
 
@@ -405,7 +385,6 @@ namespace FanControl.PumpPid
                         continue;
 
                     if (ReferenceEquals(obj, _pidOutputTempProxy) ||
-                        ReferenceEquals(obj, _inputTempBridgeCard) ||
                         ReferenceEquals(obj, this))
                     {
                         continue;
@@ -757,7 +736,7 @@ namespace FanControl.PumpPid
         [MethodImpl(MethodImplOptions.NoInlining)]
         private void CloseCore()
         {
-            _eventLogger?.LogEvent(PidEventCategory.SettlingTime, "Плагин выгружен (Close).");
+            _eventLogger?.LogEvent(PidEventCategory.SettlingTime, "Plugin unloaded (Close).");
             _configManager?.Dispose();
             _configManager = null;
             _discoveredSensors.Clear();

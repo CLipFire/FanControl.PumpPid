@@ -11,6 +11,5 @@
   "IsAutoMode": true,
   "ManualOutputPercent": 25,
   "EnableFileLogging": true,
-  "SettlingBandCelsius": 0.3,
-  "AllowInputTempBridgeCard": false
+  "SettlingBandCelsius": 0.3
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -21,12 +22,11 @@ namespace FanControl.PumpPid
         public float ManualOutputPercent { get; set; } = 25f;
         public bool EnableFileLogging { get; set; } = true;
         public float SettlingBandCelsius { get; set; } = 0.3f;
-        public bool AllowInputTempBridgeCard { get; set; } = false;
     }
 
     /// <summary>
     /// Потокобезопасный менеджер конфигурации с горячей перезагрузкой (FileSystemWatcher + проверка времени записи).
-    /// Позволяет менять датчик, уставку, диапазон Min..Max и коэффициенты из окна PumpPidConfigurator.exe налету!
+    /// Фиксирует все изменения параметров конфигурации в английском логе [CONFIG_CHANGE].
     /// </summary>
     public sealed class PumpPidConfigManager : IDisposable
     {
@@ -37,6 +37,7 @@ namespace FanControl.PumpPid
         private DateTime _lastReloadTime = DateTime.MinValue;
         private DateTime _lastKnownFileWriteUtc = DateTime.MinValue;
         private PumpPidConfig _current = new PumpPidConfig();
+        private bool _isInitialLoad = true;
 
         public PumpPidConfig Current
         {
@@ -62,7 +63,15 @@ namespace FanControl.PumpPid
                 if (!File.Exists(_configPath))
                 {
                     Save(_current);
-                    _eventLogger.LogEvent(PidEventCategory.SettlingTime, $"Создан файл конфигурации по умолчанию: {_configPath}");
+                    _isInitialLoad = false;
+                    _eventLogger.EnableFileLogging = _current.EnableFileLogging;
+                    _eventLogger.LogEvent(
+                        PidEventCategory.ConfigChange,
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "Created default configuration file '{0}': {1}",
+                            _configPath,
+                            FormatConfigSummary(_current)));
                 }
                 else
                 {
@@ -84,7 +93,7 @@ namespace FanControl.PumpPid
             }
             catch (Exception ex)
             {
-                _eventLogger.LogEvent(PidEventCategory.SettlingTime, $"Предупреждение конфига: {ex.Message}");
+                _eventLogger.LogEvent(PidEventCategory.ConfigChange, "Configuration initialization warning: " + ex.Message);
             }
         }
 
@@ -124,24 +133,104 @@ namespace FanControl.PumpPid
 
                 _lastKnownFileWriteUtc = File.GetLastWriteTimeUtc(_configPath);
                 string json = File.ReadAllText(_configPath, Encoding.UTF8);
-                PumpPidConfig loaded = ParseJson(json, _current);
+
+                PumpPidConfig prev;
+                PumpPidConfig loaded;
+                bool wasInitialLoad;
 
                 lock (_syncLock)
                 {
+                    prev = _current;
+                    loaded = ParseJson(json, _current);
                     _current = loaded;
+                    wasInitialLoad = _isInitialLoad;
+                    _isInitialLoad = false;
                 }
 
-                _eventLogger.EnableFileLogging = loaded.EnableFileLogging;
-                _eventLogger.LogEvent(
-                    PidEventCategory.SettlingTime,
-                    $"Конфиг применен: Sensor='{loaded.SourceSensorId}', Setpoint={loaded.SetpointCelsius:F1}°C, " +
-                    $"Range=[{loaded.MinOutputPercent:F0}..{loaded.MaxOutputPercent:F0}%], " +
-                    $"Kp={loaded.Kp:F2}, Ki={loaded.Ki:F2}, Kd={loaded.Kd:F2}, Mode={(loaded.IsAutoMode ? "AUTO" : "MANUAL")}");
+                if (wasInitialLoad)
+                {
+                    _eventLogger.EnableFileLogging = loaded.EnableFileLogging;
+                    _eventLogger.LogEvent(
+                        PidEventCategory.ConfigChange,
+                        "Loaded initial configuration: " + FormatConfigSummary(loaded));
+                }
+                else
+                {
+                    List<string> changes = BuildConfigDiff(prev, loaded);
+                    if (changes.Count > 0)
+                    {
+                        if (loaded.EnableFileLogging)
+                        {
+                            _eventLogger.EnableFileLogging = true;
+                        }
+
+                        _eventLogger.LogEvent(
+                            PidEventCategory.ConfigChange,
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                "Configuration updated [{0}] | Active: {1}",
+                                string.Join(", ", changes),
+                                FormatConfigSummary(loaded)));
+
+                        _eventLogger.EnableFileLogging = loaded.EnableFileLogging;
+                    }
+                }
             }
             catch (Exception ex)
             {
-                _eventLogger.LogEvent(PidEventCategory.SettlingTime, $"Не удалось прочитать PumpPidConfig.json: {ex.Message}");
+                _eventLogger.LogEvent(PidEventCategory.ConfigChange, "Failed to read PumpPidConfig.json: " + ex.Message);
             }
+        }
+
+        public static List<string> BuildConfigDiff(PumpPidConfig prev, PumpPidConfig next)
+        {
+            var changes = new List<string>();
+            if (!string.Equals(prev.SourceSensorId ?? string.Empty, next.SourceSensorId ?? string.Empty, StringComparison.Ordinal))
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "Sensor: '{0}' -> '{1}'", prev.SourceSensorId, next.SourceSensorId));
+            if (Math.Abs(prev.SetpointCelsius - next.SetpointCelsius) > 0.001f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "Setpoint: {0:F1}°C -> {1:F1}°C", prev.SetpointCelsius, next.SetpointCelsius));
+            if (Math.Abs(prev.MinOutputPercent - next.MinOutputPercent) > 0.001f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "MinOutput: {0:F0}% -> {1:F0}%", prev.MinOutputPercent, next.MinOutputPercent));
+            if (Math.Abs(prev.MaxOutputPercent - next.MaxOutputPercent) > 0.001f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "MaxOutput: {0:F0}% -> {1:F0}%", prev.MaxOutputPercent, next.MaxOutputPercent));
+            if (Math.Abs(prev.Kp - next.Kp) > 0.0001f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "Kp: {0:F2} -> {1:F2}", prev.Kp, next.Kp));
+            if (Math.Abs(prev.Ki - next.Ki) > 0.0001f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "Ki: {0:F2} -> {1:F2}", prev.Ki, next.Ki));
+            if (Math.Abs(prev.Kd - next.Kd) > 0.0001f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "Kd: {0:F2} -> {1:F2}", prev.Kd, next.Kd));
+            if (Math.Abs(prev.DerivativeFilterTau - next.DerivativeFilterTau) > 0.001f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "Tau: {0:F1}s -> {1:F1}s", prev.DerivativeFilterTau, next.DerivativeFilterTau));
+            if (Math.Abs(prev.SettlingBandCelsius - next.SettlingBandCelsius) > 0.001f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "SettlingBand: ±{0:F2}°C -> ±{1:F2}°C", prev.SettlingBandCelsius, next.SettlingBandCelsius));
+            if (prev.IsAutoMode != next.IsAutoMode)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "Mode: {0} -> {1}", prev.IsAutoMode ? "AUTO" : "MANUAL", next.IsAutoMode ? "AUTO" : "MANUAL"));
+            if (Math.Abs(prev.ManualOutputPercent - next.ManualOutputPercent) > 0.01f)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "ManualOutput: {0:F1}% -> {1:F1}%", prev.ManualOutputPercent, next.ManualOutputPercent));
+            if (prev.EnableFileLogging != next.EnableFileLogging)
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "EnableFileLogging: {0} -> {1}", prev.EnableFileLogging ? "true" : "false", next.EnableFileLogging ? "true" : "false"));
+            if (!string.Equals(prev.UiLanguage ?? "ru", next.UiLanguage ?? "ru", StringComparison.OrdinalIgnoreCase))
+                changes.Add(string.Format(CultureInfo.InvariantCulture, "UiLanguage: '{0}' -> '{1}'", prev.UiLanguage ?? "ru", next.UiLanguage ?? "ru"));
+            return changes;
+        }
+
+        public static string FormatConfigSummary(PumpPidConfig cfg)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "Sensor='{0}', Setpoint={1:F1}°C, Range=[{2:F0}..{3:F0}%], Kp={4:F2}, Ki={5:F2}, Kd={6:F2}, Tau={7:F1}s, Band=±{8:F2}°C, Mode={9}, Manual={10:F1}%, FileLog={11}",
+                cfg.SourceSensorId,
+                cfg.SetpointCelsius,
+                cfg.MinOutputPercent,
+                cfg.MaxOutputPercent,
+                cfg.Kp,
+                cfg.Ki,
+                cfg.Kd,
+                cfg.DerivativeFilterTau,
+                cfg.SettlingBandCelsius,
+                cfg.IsAutoMode ? "AUTO" : "MANUAL",
+                cfg.ManualOutputPercent,
+                cfg.EnableFileLogging ? "true" : "false");
         }
 
         public void Save(PumpPidConfig cfg)
@@ -162,15 +251,14 @@ namespace FanControl.PumpPid
                 sb.AppendLine($"  \"IsAutoMode\": {(cfg.IsAutoMode ? "true" : "false")},");
                 sb.AppendLine($"  \"ManualOutputPercent\": {cfg.ManualOutputPercent.ToString(CultureInfo.InvariantCulture)},");
                 sb.AppendLine($"  \"EnableFileLogging\": {(cfg.EnableFileLogging ? "true" : "false")},");
-                sb.AppendLine($"  \"SettlingBandCelsius\": {cfg.SettlingBandCelsius.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"AllowInputTempBridgeCard\": {(cfg.AllowInputTempBridgeCard ? "true" : "false")}");
+                sb.AppendLine($"  \"SettlingBandCelsius\": {cfg.SettlingBandCelsius.ToString(CultureInfo.InvariantCulture)}");
                 sb.AppendLine("}");
                 File.WriteAllText(_configPath, sb.ToString(), Encoding.UTF8);
                 _lastKnownFileWriteUtc = File.GetLastWriteTimeUtc(_configPath);
             }
             catch (Exception ex)
             {
-                _eventLogger.LogEvent(PidEventCategory.SettlingTime, $"Ошибка сохранения конфига: {ex.Message}");
+                _eventLogger.LogEvent(PidEventCategory.ConfigChange, "Failed to save PumpPidConfig.json: " + ex.Message);
             }
         }
 
@@ -192,8 +280,7 @@ namespace FanControl.PumpPid
                 IsAutoMode = ReadBool(json, "IsAutoMode", fallback.IsAutoMode),
                 ManualOutputPercent = ReadFloat(json, "ManualOutputPercent", fallback.ManualOutputPercent),
                 EnableFileLogging = ReadBool(json, "EnableFileLogging", fallback.EnableFileLogging),
-                SettlingBandCelsius = ReadFloat(json, "SettlingBandCelsius", fallback.SettlingBandCelsius),
-                AllowInputTempBridgeCard = ReadBool(json, "AllowInputTempBridgeCard", fallback.AllowInputTempBridgeCard)
+                SettlingBandCelsius = ReadFloat(json, "SettlingBandCelsius", fallback.SettlingBandCelsius)
             };
             return cfg;
         }

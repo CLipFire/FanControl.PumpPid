@@ -486,7 +486,6 @@ namespace FanControl.PumpPid.Configurator
         private RadioButton _rbManual;
         private NumericUpDown _numManualOut;
         private CheckBox _chkFileLogging;
-        private CheckBox _chkAllowBridgeCard;
 
         private PidOscilloscopeControl _oscilloscope;
         private Label _lblMeasureBanner;
@@ -501,7 +500,6 @@ namespace FanControl.PumpPid.Configurator
         private string _lastActiveSensor = string.Empty;
         private string _lastUpdatedAt = string.Empty;
         private string _lastSavedTimeStr = string.Empty;
-        private bool _bridgeCardToggledInSession;
         private DateTime _lastComboRefreshUtc = DateTime.MinValue;
         private long _lastLogFileLength = -1;
         private DateTime _lastLogWriteUtc = DateTime.MinValue;
@@ -712,29 +710,14 @@ namespace FanControl.PumpPid.Configurator
             pnlPid.Controls.Add(_numManualOut);
 
             _chkFileLogging = new CheckBox();
-            _chkFileLogging.Text = "Запись лога в файл";
+            _chkFileLogging.Text = "Запись лога событий в файл (PumpPidEvents.log)";
             _chkFileLogging.Location = new Point(12, 150);
-            _chkFileLogging.Size = new Size(185, 22);
+            _chkFileLogging.Size = new Size(460, 22);
             _chkFileLogging.ForeColor = Color.FromArgb(203, 213, 225);
-            _chkFileLogging.Font = new Font("Segoe UI", 8.2f, FontStyle.Regular);
+            _chkFileLogging.Font = new Font("Segoe UI", 8.5f, FontStyle.Regular);
             _chkFileLogging.Checked = true;
             _chkFileLogging.CheckedChanged += delegate { if (!_suppressEvents) SaveConfigFromUi(); };
             pnlPid.Controls.Add(_chkFileLogging);
-
-            _chkAllowBridgeCard = new CheckBox();
-            _chkAllowBridgeCard.Text = "Карточка входа T° (нужен перезапуск FC)";
-            _chkAllowBridgeCard.Location = new Point(202, 150);
-            _chkAllowBridgeCard.Size = new Size(286, 22);
-            _chkAllowBridgeCard.ForeColor = Color.FromArgb(148, 163, 184);
-            _chkAllowBridgeCard.Font = new Font("Segoe UI", 8.2f, FontStyle.Regular);
-            _chkAllowBridgeCard.Checked = false;
-            _chkAllowBridgeCard.CheckedChanged += delegate
-            {
-                if (_suppressEvents) return;
-                _bridgeCardToggledInSession = true;
-                SaveConfigFromUi();
-            };
-            pnlPid.Controls.Add(_chkAllowBridgeCard);
 
             Controls.Add(pnlPid);
             yLeft += 202;
@@ -966,8 +949,7 @@ namespace FanControl.PumpPid.Configurator
                 _lblBandTitle.Text = "Band ±°C:";
                 _rbAuto.Text = "AUTO (PID Controller)";
                 _rbManual.Text = "MANUAL MODE (%):";
-                _chkFileLogging.Text = "Log events to file";
-                _chkAllowBridgeCard.Text = "Input T° bridge card (needs FC restart)";
+                _chkFileLogging.Text = "Log events to file (PumpPidEvents.log)";
 
                 _btnApply.Text = "APPLY SETTINGS TO FANCONTROL (INSTANT HOT-RELOAD)";
                 _lblTelHeader.Text = "LIVE TELEMETRY FROM FANCONTROL";
@@ -995,8 +977,7 @@ namespace FanControl.PumpPid.Configurator
                 _lblBandTitle.Text = "Допуск ±°C:";
                 _rbAuto.Text = "АВТО (PID-регулятор)";
                 _rbManual.Text = "РУЧНОЙ РЕЖИМ (%):";
-                _chkFileLogging.Text = "Запись лога в файл";
-                _chkAllowBridgeCard.Text = "Карточка входа T° (нужен перезапуск FC)";
+                _chkFileLogging.Text = "Запись лога событий в файл (PumpPidEvents.log)";
 
                 _btnApply.Text = "ПРИМЕНИТЬ НАСТРОЙКИ К FANCONTROL (МГНОВЕННО)";
                 _lblTelHeader.Text = "ТЕЛЕМЕТРИЯ РЕАЛЬНОГО ВРЕМЕНИ ИЗ FANCONTROL";
@@ -1041,12 +1022,6 @@ namespace FanControl.PumpPid.Configurator
                 _lblSaveStatus.Text = _isEnglish
                     ? "Ready. All changes are saved and applied automatically."
                     : "Готово к работе. Все изменения сохраняются автоматически.";
-            }
-            else if (_bridgeCardToggledInSession)
-            {
-                _lblSaveStatus.Text = _isEnglish
-                    ? ("Saved at " + _lastSavedTimeStr + " (restart FanControl to add/remove bridge card)")
-                    : ("Сохранено в " + _lastSavedTimeStr + " (для карточки входа перезапустите FanControl)");
             }
             else
             {
@@ -1116,7 +1091,6 @@ namespace FanControl.PumpPid.Configurator
                 _rbManual.Checked = false;
                 _numManualOut.Value = 50m;
                 _chkFileLogging.Checked = true;
-                _chkAllowBridgeCard.Checked = false;
 
                 if (!File.Exists(_configPath)) return;
                 string json = File.ReadAllText(_configPath, Encoding.UTF8);
@@ -1144,7 +1118,6 @@ namespace FanControl.PumpPid.Configurator
                 _rbManual.Checked = !isAuto;
                 _numManualOut.Value = ClampDec((decimal)ReadJsonFloat(json, "ManualOutputPercent", 50f), 0m, 100m);
                 _chkFileLogging.Checked = ReadJsonBool(json, "EnableFileLogging", true);
-                _chkAllowBridgeCard.Checked = ReadJsonBool(json, "AllowInputTempBridgeCard", false);
             }
             catch
             {
@@ -1159,10 +1132,25 @@ namespace FanControl.PumpPid.Configurator
         {
             try
             {
+                string oldJson = File.Exists(_configPath) ? File.ReadAllText(_configPath, Encoding.UTF8) : string.Empty;
+
+                string newLang = _isEnglish ? "en" : "ru";
                 string sensorId = (_txtCustomSensor.Text ?? "Core Average").Trim();
+                float newSp = (float)_numSetpoint.Value;
+                float newKp = (float)_numKp.Value;
+                float newKi = (float)_numKi.Value;
+                float newKd = (float)_numKd.Value;
+                float newTau = (float)_numTau.Value;
+                float newMin = (float)_numMinOut.Value;
+                float newMax = (float)_numMaxOut.Value;
+                bool newAuto = _rbAuto.Checked;
+                float newManual = (float)_numManualOut.Value;
+                bool newFileLog = _chkFileLogging.Checked;
+                float newBand = (float)_numSettlingBand.Value;
+
                 var sb = new StringBuilder();
                 sb.AppendLine("{");
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"UiLanguage\": \"{0}\",", _isEnglish ? "en" : "ru"));
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"UiLanguage\": \"{0}\",", newLang));
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SourceSensorId\": \"{0}\",", EscapeJson(sensorId)));
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SetpointCelsius\": {0:F1},", _numSetpoint.Value));
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"Kp\": {0:F2},", _numKp.Value));
@@ -1171,14 +1159,87 @@ namespace FanControl.PumpPid.Configurator
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"DerivativeFilterTau\": {0:F1},", _numTau.Value));
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"MinOutputPercent\": {0:F0},", _numMinOut.Value));
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"MaxOutputPercent\": {0:F0},", _numMaxOut.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"IsAutoMode\": {0},", _rbAuto.Checked ? "true" : "false"));
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"IsAutoMode\": {0},", newAuto ? "true" : "false"));
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"ManualOutputPercent\": {0:F1},", _numManualOut.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"EnableFileLogging\": {0},", _chkFileLogging.Checked ? "true" : "false"));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SettlingBandCelsius\": {0:F2},", _numSettlingBand.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"AllowInputTempBridgeCard\": {0}", _chkAllowBridgeCard.Checked ? "true" : "false"));
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"EnableFileLogging\": {0},", newFileLog ? "true" : "false"));
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SettlingBandCelsius\": {0:F2}", _numSettlingBand.Value));
                 sb.AppendLine("}");
 
                 File.WriteAllText(_configPath, sb.ToString(), Encoding.UTF8);
+
+                // If FanControl is not currently running (so PumpPidConfigManager is offline), write [CONFIG_CHANGE] directly to PumpPidEvents.log
+                bool isPluginLive = File.Exists(_statusPath) && (DateTime.UtcNow - File.GetLastWriteTimeUtc(_statusPath)).TotalSeconds <= 3.0;
+                bool oldFileLog = string.IsNullOrEmpty(oldJson) || ReadJsonBool(oldJson, "EnableFileLogging", true);
+                if (!isPluginLive && (newFileLog || oldFileLog) && !string.IsNullOrEmpty(_logPath))
+                {
+                    var diffs = new List<string>();
+                    if (!string.IsNullOrEmpty(oldJson))
+                    {
+                        string oldSensor = ReadJsonString(oldJson, "SourceSensorId", "Core Average");
+                        float oldSp = ReadJsonFloat(oldJson, "SetpointCelsius", 60f);
+                        float oldMin = ReadJsonFloat(oldJson, "MinOutputPercent", 25f);
+                        float oldMax = ReadJsonFloat(oldJson, "MaxOutputPercent", 75f);
+                        float oldKp = ReadJsonFloat(oldJson, "Kp", 0.4f);
+                        float oldKi = ReadJsonFloat(oldJson, "Ki", 0.8f);
+                        float oldKd = ReadJsonFloat(oldJson, "Kd", 1.8f);
+                        float oldTau = ReadJsonFloat(oldJson, "DerivativeFilterTau", 2.0f);
+                        float oldBand = ReadJsonFloat(oldJson, "SettlingBandCelsius", 0.3f);
+                        bool oldAuto = ReadJsonBool(oldJson, "IsAutoMode", true);
+                        float oldManual = ReadJsonFloat(oldJson, "ManualOutputPercent", 50f);
+                        string oldLang = ReadJsonString(oldJson, "UiLanguage", "ru");
+
+                        if (!string.Equals(oldSensor, sensorId, StringComparison.Ordinal))
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Sensor: '{0}' -> '{1}'", oldSensor, sensorId));
+                        if (Math.Abs(oldSp - newSp) > 0.001f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Setpoint: {0:F1}°C -> {1:F1}°C", oldSp, newSp));
+                        if (Math.Abs(oldMin - newMin) > 0.001f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "MinOutput: {0:F0}% -> {1:F0}%", oldMin, newMin));
+                        if (Math.Abs(oldMax - newMax) > 0.001f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "MaxOutput: {0:F0}% -> {1:F0}%", oldMax, newMax));
+                        if (Math.Abs(oldKp - newKp) > 0.0001f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Kp: {0:F2} -> {1:F2}", oldKp, newKp));
+                        if (Math.Abs(oldKi - newKi) > 0.0001f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Ki: {0:F2} -> {1:F2}", oldKi, newKi));
+                        if (Math.Abs(oldKd - newKd) > 0.0001f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Kd: {0:F2} -> {1:F2}", oldKd, newKd));
+                        if (Math.Abs(oldTau - newTau) > 0.001f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Tau: {0:F1}s -> {1:F1}s", oldTau, newTau));
+                        if (Math.Abs(oldBand - newBand) > 0.001f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "SettlingBand: ±{0:F2}°C -> ±{1:F2}°C", oldBand, newBand));
+                        if (oldAuto != newAuto)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Mode: {0} -> {1}", oldAuto ? "AUTO" : "MANUAL", newAuto ? "AUTO" : "MANUAL"));
+                        if (Math.Abs(oldManual - newManual) > 0.01f)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "ManualOutput: {0:F1}% -> {1:F1}%", oldManual, newManual));
+                        if (oldFileLog != newFileLog)
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "EnableFileLogging: {0} -> {1}", oldFileLog ? "true" : "false", newFileLog ? "true" : "false"));
+                        if (!string.Equals(oldLang, newLang, StringComparison.OrdinalIgnoreCase))
+                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "UiLanguage: '{0}' -> '{1}'", oldLang, newLang));
+                    }
+
+                    if (diffs.Count > 0 || string.IsNullOrEmpty(oldJson))
+                    {
+                        string activeSummary = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "Sensor='{0}', Setpoint={1:F1}°C, Range=[{2:F0}..{3:F0}%], Kp={4:F2}, Ki={5:F2}, Kd={6:F2}, Tau={7:F1}s, Band=±{8:F2}°C, Mode={9}, Manual={10:F1}%, FileLog={11}",
+                            sensorId, newSp, newMin, newMax, newKp, newKi, newKd, newTau, newBand,
+                            newAuto ? "AUTO" : "MANUAL", newManual,
+                            newFileLog ? "true" : "false");
+
+                        string msg = diffs.Count > 0
+                            ? string.Format(CultureInfo.InvariantCulture, "Configuration updated [{0}] | Active: {1}", string.Join(", ", diffs), activeSummary)
+                            : ("Configuration saved: " + activeSummary);
+
+                        string line = string.Format(CultureInfo.InvariantCulture, "{0:yyyy-MM-dd HH:mm:ss.fff} [CONFIG_CHANGE] {1}{2}", DateTime.Now, msg, Environment.NewLine);
+                        try
+                        {
+                            File.AppendAllText(_logPath, line, Encoding.UTF8);
+                        }
+                        catch
+                        {
+                        }
+                    }
+                }
+
                 _lastSavedTimeStr = DateTime.Now.ToString("HH:mm:ss");
                 UpdateSaveStatusText();
             }

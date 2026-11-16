@@ -31,39 +31,4 @@ namespace FanControl.PumpPid
         {
         }
     }
-
-    /// <summary>
-    /// Вспомогательный входной канал температуры (IPluginControlSensor).
-    /// По умолчанию ОТКЛЮЧЕН (AllowInputTempBridgeCard = false в PumpPidConfig.json), чтобы исключить
-    /// случайное замыкание петли обратной связи, если пользователь привяжет к этой карточке кривую PID Out.
-    /// </summary>
-    public sealed class PumpPidInputTempBridgeSensor : IPluginControlSensor
-    {
-        private float? _receivedTempCelsius;
-
-        public string Id { get; }
-        public string Name { get; }
-        public float? Value => _receivedTempCelsius;
-        public bool HasActiveInput => _receivedTempCelsius.HasValue;
-
-        public PumpPidInputTempBridgeSensor(string id, string name)
-        {
-            Id = id;
-            Name = name;
-        }
-
-        public void Set(float val)
-        {
-            _receivedTempCelsius = val;
-        }
-
-        public void Reset()
-        {
-            _receivedTempCelsius = null;
-        }
-
-        public void Update()
-        {
-        }
-    }
 }

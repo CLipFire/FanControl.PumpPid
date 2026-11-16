@@ -8,13 +8,14 @@ namespace FanControl.PumpPid
     {
         BumplessMode,
         SettlingTime,
-        RangeClamp
+        RangeClamp,
+        ConfigChange
     }
 
     /// <summary>
     /// Потокобезопасный логгер событий PID-регулятора с автоматической ротацией лог-файла (> 512 КБ).
     /// Дублирует ключевые события в штатный IPluginLogger самого FanControl
-    /// и записывает подробный журнал в файл PumpPidEvents.log.
+    /// и записывает подробный журнал на английском языке в файл PumpPidEvents.log.
     /// </summary>
     public sealed class PumpPidEventLogger
     {
@@ -38,6 +39,7 @@ namespace FanControl.PumpPid
             if (category == PidEventCategory.BumplessMode) tag = "MODE_BUMPLESS";
             else if (category == PidEventCategory.SettlingTime) tag = "SETTLING_TIME";
             else if (category == PidEventCategory.RangeClamp) tag = "RANGE_CLAMP";
+            else if (category == PidEventCategory.ConfigChange) tag = "CONFIG_CHANGE";
 
             try
             {

@@ -37,7 +37,7 @@
 5. **Графический конфигуратор `PumpPidConfigurator.exe` (RU / EN) с Осциллографом**:
    - Автоматически находит запущенный процесс `FanControl.exe` и его папку `Plugins` даже при запуске без `.bat`-файла из любой папки.
    - Мгновенное переключение языка интерфейса **`RU` / `EN`** в правом верхнем углу окна.
-   - Горячее применение настроек (`Hot-Reload`) на лету без перезапуска FanControl для всех рабочих параметров регулятора (датчик, уставка, диапазон `Min..Max`, `Kp/Ki/Kd/Tau`, допуск стабилизации `SettlingBandCelsius`, режим `AUTO/MANUAL` и запись лога `EnableFileLogging`). *Исключение: включение/отключение вспомогательной карточки-моста `AllowInputTempBridgeCard` требует перезапуска FanControl, так как сам FanControl регистрирует карточки `ControlSensors` только один раз при инициализации плагина (`Load`).*
+   - Горячее применение настроек (`Hot-Reload`) на лету без перезапуска FanControl (выбор датчика температуры, уставка, диапазон `Min..Max`, `Kp/Ki/Kd/Tau`, допуск стабилизации `SettlingBandCelsius`, режим `AUTO/MANUAL` и запись лога `EnableFileLogging` применяются мгновенно и фиксируются в `PumpPidEvents.log`).
    - Встроенный **двухканальный GDI+ осциллограф** с реальными миллисекундными метками времени, вертикальной сеткой (`5 сек` / `10 сек`) и интерактивным замером интервала мышью (`[t₁ .. t₂]`: расчет $\Delta t$, $\Delta T$, скорости нагрева/охлаждения $^circ\text{C/с}$, $\Delta U$ и скорости реакции помпы $\text{%/с}$).
 
 ---
@@ -101,7 +101,7 @@
 1. **Выбор языка (`RU` | `EN`)**:
    - В правом верхнем углу окна нажмите **`RU`** для русского интерфейса или **`EN`** для английского. Выбор сохраняется автоматически.
 2. **1. Выбор датчика температуры (Источник)**:
-   - В выпадающем списке отображаются все найденные в запущенном FanControl датчики с живым обновлением текущих градусов:
+   - Выбор датчика температуры выполняется напрямую через выпадающий список в `PumpPidConfigurator.exe`, где отображаются все найденные в запущенном FanControl датчики с живым обновлением текущих градусов:
      - `★ [Пользовательский]` / `★ [Custom]` — ваши кастомные датчики из FanControl (например, `Time Avg CPU max`, `Mix CPU\GPU`).
      - `[Системный]` / `[System]` — аппаратные датчики процессора, видеокарты, материнской платы и датчика воды СЖО.
    - *Примечание*: если вы только что запустили FanControl, подождите 8–10 секунд, пока FanControl инициализирует все датчики, и нажмите кнопку **«Обновить список» (`Refresh List`)**.
@@ -114,8 +114,7 @@
    - **`Kd` (Дифференциальный, по умолчанию `1.80`)**: реакция на скорость роста температуры (`%·с / °C`) — дает упреждающий импульс помпе при резком скачке нагрузки.
    - **`Tau` (сек, по умолчанию `2.0 с`)**: постоянная времени фильтра сглаживания дифференциала.
    - **`Допуск ±°C` (`SettlingBandCelsius`, по умолчанию `0.30 °C`)**: коридор стабилизации вокруг уставки для замера времени выхода на режим.
-   - **Галочка «Запись лога в файл» (`EnableFileLogging`)**: включает/отключает запись событий в `PumpPidEvents.log` на лету.
-   - **Галочка «Карточка входа T° (нужен перезапуск FC)» (`AllowInputTempBridgeCard`)**: по умолчанию выключена (`false`), чтобы исключить случайную петлю обратной связи. При изменении этой галочки необходимо **перезапустить FanControl**, чтобы карточка появилась или исчезла в разделе `Controls`.
+   - **Галочка «Запись лога событий в файл (PumpPidEvents.log)» (`EnableFileLogging`)**: включает/отключает запись событий (включая все изменения конфигурации `[CONFIG_CHANGE]`) в `PumpPidEvents.log` на лету.
 5. **Осциллограф переходных процессов и замер интервала мышью**:
    - **Кнопка «Сетка: 5 сек / 10 сек»**: переключает шаг вертикальных линий разметки времени.
    - **Замер мышью**: зажмите **левую кнопку мыши** на графике и протяните вправо от начала нагрева до выхода на полку — над графиком мгновенно отобразится точное время переходного процесса $\Delta t$ (в секундах), перепад температуры $\Delta T$ ($^circ\text{C/с}$) и скорость реакции помпы $\Delta U$ ($\text{%/с}$). Правый клик мыши (или кнопка «Сброс замера») снимает выделение.
@@ -160,7 +159,7 @@
 5. **Standalone GUI Configurator (`PumpPidConfigurator.exe`) with Built-In Oscilloscope**:
    - Automatically detects the running `FanControl.exe` process and its `Plugins` folder even if launched directly from any folder without a `.bat` script.
    - Instant **`RU | EN`** language toggle in the top-right corner.
-   - Live hot-reload via `FileSystemWatcher` — apply sensor, setpoint, `Min..Max`, `Kp/Ki/Kd/Tau`, `SettlingBandCelsius`, `AUTO/MANUAL` mode, and `EnableFileLogging` changes on the fly without restarting FanControl. *(Note: toggling the optional `AllowInputTempBridgeCard` setting requires a FanControl restart because FanControl only registers `ControlSensors` during plugin `Load`).*
+   - Live hot-reload via `FileSystemWatcher` — apply temperature sensor selection, setpoint, `Min..Max`, `Kp/Ki/Kd/Tau`, `SettlingBandCelsius`, `AUTO/MANUAL` mode, and `EnableFileLogging` changes on the fly without restarting FanControl (all changes are logged in English under `[CONFIG_CHANGE]` in `PumpPidEvents.log`).
    - **Dual-channel GDI+ oscilloscope** with real millisecond timestamps, `5s / 10s` vertical time grid lines, and **mouse drag-to-measure interval ruler** (`[t₁ .. t₂]` showing $\Delta t$, $\Delta T$, $^circ\text{C/s}$, $\Delta U$, and $\text{%/s}$).
 
 ---
@@ -218,8 +217,8 @@ FanControl's control cards have a built-in rate limiter (**Step Up / Step Down**
 
 Launch **`PumpPidConfigurator.exe`** directly from `FanControl\Plugins\` (or any folder while FanControl is running):
 1. Click **`EN`** or **`RU`** in the top-right corner to switch the interface language at any time.
-2. Select your desired **System** (`[System]`) or **Custom** (`★ [Custom]`) temperature sensor from the dropdown (if FanControl just started, wait ~8 seconds and click **Refresh List**).
-3. Adjust **Target Setpoint (°C)** (default `60.0 °C`), **Min / Max Pump Speed (%)** (default `25% .. 75%`), **PID Gains (`Kp = 0.40`, `Ki = 0.80`, `Kd = 1.80`, `Tau = 2.0 s`)**, **Band ±°C (`SettlingBandCelsius`)**, and **Log events to file (`EnableFileLogging`)** — all these parameters are hot-reloaded by FanControl within 0.5 seconds. *(Toggling **Input T° bridge card (`AllowInputTempBridgeCard`)** requires restarting FanControl so the control card is registered/unregistered in `Load`).*
+2. Select your desired **System** (`[System]`) or **Custom** (`★ [Custom]`) temperature sensor directly from the dropdown in `PumpPidConfigurator.exe` (if FanControl just started, wait ~8 seconds and click **Refresh List**).
+3. Adjust **Target Setpoint (°C)** (default `60.0 °C`), **Min / Max Pump Speed (%)** (default `25% .. 75%`), **PID Gains (`Kp = 0.40`, `Ki = 0.80`, `Kd = 1.80`, `Tau = 2.0 s`)**, **Band ±°C (`SettlingBandCelsius`)**, and **Log events to file (`EnableFileLogging`)** — all settings are hot-reloaded by FanControl within 0.5 seconds without restarting FanControl.
 4. **Interactive Oscilloscope Measurement**: Hold the **Left Mouse Button** on the chart and drag horizontally across any transient to measure $\Delta t$ (seconds), $\Delta T$ ($^circ\text{C/s}$), and $\Delta U$ ($\text{%/s}$). Right-click or press **Reset Measure** to clear.
 
 ---

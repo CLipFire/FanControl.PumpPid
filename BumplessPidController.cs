@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 
 namespace FanControl.PumpPid
 {
@@ -132,7 +133,10 @@ namespace FanControl.PumpPid
                 {
                     eventLogger?.LogEvent(
                         PidEventCategory.BumplessMode,
-                        $"Переключение AUTO -> MANUAL ({manualClamped:F1}%). Интегратор переведен в режим слежения: I_state={_integralState:F1}%, P={pTerm:F1}%, D={dTerm:F1}%.");
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "Switched AUTO -> MANUAL ({0:F1}%). Integrator tracking active: I_state={1:F1}%, P={2:F1}%, D={3:F1}%.",
+                            manualClamped, _integralState, pTerm, dTerm));
                 }
 
                 _wasAutoMode = false;
@@ -154,7 +158,10 @@ namespace FanControl.PumpPid
 
                 eventLogger?.LogEvent(
                     PidEventCategory.BumplessMode,
-                    $"Безударный переход MANUAL -> AUTO на точке {holdOutput:F1}%. Предзаряд I_state={_integralState:F1}% (P={pTerm:F1}%, D={dTerm:F1}%). Скачок: 0.0%.");
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "Bumpless transfer MANUAL -> AUTO at {0:F1}%. Preloaded I_state={1:F1}% (P={2:F1}%, D={3:F1}%). Output jump: 0.0%.",
+                        holdOutput, _integralState, pTerm, dTerm));
             }
             else if (Math.Abs(_lastKp - config.Kp) > 0.0001f)
             {
@@ -164,7 +171,10 @@ namespace FanControl.PumpPid
 
                 eventLogger?.LogEvent(
                     PidEventCategory.BumplessMode,
-                    $"Безударная коррекция интегратора при смене Kp ({_lastKp:F2} -> {config.Kp:F2}). Удержан выход U_out={holdOutput:F1}%, новый I_state={_integralState:F1}%. Скачок: 0.0%.");
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "Bumpless integrator resync on Kp change ({0:F2} -> {1:F2}). Held U_out={2:F1}%, new I_state={3:F1}%. Output jump: 0.0%.",
+                        _lastKp, config.Kp, holdOutput, _integralState));
 
                 _lastKp = config.Kp;
             }
@@ -205,7 +215,10 @@ namespace FanControl.PumpPid
             {
                 eventLogger?.LogEvent(
                     PidEventCategory.SettlingTime,
-                    $"Уставка изменена: {_lastSetpoint:F1}°C -> {config.SetpointCelsius:F1}°C (текущая T={actualTemp:F2}°C, e={error:+0.00;-0.00}°C). Запущен отсчет времени выхода на уставку.");
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "Setpoint changed: {0:F1}°C -> {1:F1}°C (current T={2:F2}°C, error={3:+0.00;-0.00;0.00}°C). Started settling timer.",
+                        _lastSetpoint, config.SetpointCelsius, actualTemp, error));
 
                 _lastSetpoint = config.SetpointCelsius;
                 _transitionStartUtc = now;
@@ -224,7 +237,10 @@ namespace FanControl.PumpPid
 
                 eventLogger?.LogEvent(
                     PidEventCategory.SettlingTime,
-                    $"Температура вышла из коридора уставки (±{band:F2}°C): T={actualTemp:F2}°C при Setpoint={config.SetpointCelsius:F1}°C. Запущен секундомер стабилизации.");
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "Temperature left settling band (±{0:F2}°C): T={1:F2}°C at Setpoint={2:F1}°C. Started stabilization timer.",
+                        band, actualTemp, config.SetpointCelsius));
             }
 
             if (!_isSettled)
@@ -243,7 +259,10 @@ namespace FanControl.PumpPid
 
                         eventLogger?.LogEvent(
                             PidEventCategory.SettlingTime,
-                            $"Выход на уставку {config.SetpointCelsius:F1}°C завершен за {elapsedSec:F1} с (ΔT={deltaT:F2}°C, скорость={speedDegPerSec:F3} °C/с, пик ошибки={_peakAbsError:F2}°C).");
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                "Settled at setpoint {0:F1}°C in {1:F1} s (dT={2:F2}°C, rate={3:F3} °C/s, peak error={4:F2}°C).",
+                                config.SetpointCelsius, elapsedSec, deltaT, speedDegPerSec, _peakAbsError));
                     }
                 }
                 else
@@ -298,13 +317,19 @@ namespace FanControl.PumpPid
                     {
                         eventLogger?.LogEvent(
                             PidEventCategory.RangeClamp,
-                            $"Достигнута нижняя граница диапазона Min ({minOut:F1}%). Сработал Anti-Windup (I_state={_integralState:F1}%, T={actualTemp:F2}°C).");
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                "Reached lower output limit Min ({0:F1}%). Anti-Windup active (I_state={1:F1}%, T={2:F2}°C).",
+                                minOut, _integralState, actualTemp));
                     }
                     else
                     {
                         eventLogger?.LogEvent(
                             PidEventCategory.RangeClamp,
-                            $"Достигнута верхняя граница диапазона Max ({maxOut:F1}%). Сработал Anti-Windup (I_state={_integralState:F1}%, T={actualTemp:F2}°C).");
+                            string.Format(
+                                CultureInfo.InvariantCulture,
+                                "Reached upper output limit Max ({0:F1}%). Anti-Windup active (I_state={1:F1}%, T={2:F2}°C).",
+                                maxOut, _integralState, actualTemp));
                     }
                 }
             }
@@ -319,7 +344,10 @@ namespace FanControl.PumpPid
 
                     eventLogger?.LogEvent(
                         PidEventCategory.RangeClamp,
-                        $"Выход из насыщения {_loggedClampState} после {durSec:F1} с на границе. Восстановлено линейное регулирование (U_out={clampedOutput:F1}%).");
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            "Exited {0} saturation after {1:F1} s at limit. Linear PID control restored (U_out={2:F1}%).",
+                            _loggedClampState, durSec, clampedOutput));
 
                     _loggedClampState = ClampState.None;
                     _loggedClampEnteredUtc = null;
