@@ -1,0 +1,61 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.0 + AnyCPU универсально работает на Windows 10 / 11 (x64, x86, ARM64) и в .NET 4.8 / .NET 8.0 версиях FanControl -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>FanControl.PumpPid</AssemblyName>
+    <RootNamespace>FanControl.PumpPid</RootNamespace>
+    <FanControlDir>C:\Program Files\FanControl</FanControlDir>
+    <AutoCopyToPlugins>true</AutoCopyToPlugins>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="PumpPidPlugin.cs" />
+    <Compile Include="BumplessPidController.cs" />
+    <Compile Include="PumpPidEventLogger.cs" />
+    <Compile Include="VirtualSensors.cs" />
+    <Compile Include="PumpPidConfig.cs" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Единая цепочка fallback-путей к установленному FanControl (используется и для Reference, и для DeployToFanControlPlugins) -->
+    <ResolvedFanControlDir Condition="Exists('$(FanControlDir)\FanControl.Plugins.dll')">$(FanControlDir)</ResolvedFanControlDir>
+    <ResolvedFanControlDir Condition="'$(ResolvedFanControlDir)' == '' and Exists('C:\Program Files\FanControl\FanControl.Plugins.dll')">C:\Program Files\FanControl</ResolvedFanControlDir>
+    <ResolvedFanControlDir Condition="'$(ResolvedFanControlDir)' == '' and Exists('C:\Program Files (x86)\FanControl\FanControl.Plugins.dll')">C:\Program Files (x86)\FanControl</ResolvedFanControlDir>
+    <ResolvedFanControlDir Condition="'$(ResolvedFanControlDir)' == '' and '$(LOCALAPPDATA)' != '' and Exists('$(LOCALAPPDATA)\FanControl\FanControl.Plugins.dll')">$(LOCALAPPDATA)\FanControl</ResolvedFanControlDir>
+
+    <ResolvedPluginDll Condition="'$(ResolvedFanControlDir)' != '' and Exists('$(ResolvedFanControlDir)\FanControl.Plugins.dll')">$(ResolvedFanControlDir)\FanControl.Plugins.dll</ResolvedPluginDll>
+    <ResolvedPluginDll Condition="'$(ResolvedPluginDll)' == '' and Exists('$(ProjectDir)FanControl.Plugins.dll')">$(ProjectDir)FanControl.Plugins.dll</ResolvedPluginDll>
+    <ResolvedPluginDll Condition="'$(ResolvedPluginDll)' == ''">$(ProjectDir)FanControl.Plugins.dll</ResolvedPluginDll>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="FanControl.Plugins">
+      <HintPath>$(ResolvedPluginDll)</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="PumpPidConfig.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Автоматическое копирование ТОЛЬКО собранной DLL плагина и PumpPidConfig.json в найденную папку FanControl\Plugins -->
+  <Target Name="DeployToFanControlPlugins" AfterTargets="Build" Condition="'$(AutoCopyToPlugins)' != 'false' and '$(ResolvedFanControlDir)' != '' and Exists('$(ResolvedFanControlDir)')">
+    <PropertyGroup>
+      <FanControlPluginsDir>$(ResolvedFanControlDir)\Plugins</FanControlPluginsDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(FanControlPluginsDir)" Condition="!Exists('$(FanControlPluginsDir)')" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(FanControlPluginsDir)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="$(ProjectDir)PumpPidConfig.json" DestinationFolder="$(FanControlPluginsDir)" Condition="!Exists('$(FanControlPluginsDir)\PumpPidConfig.json')" />
+    <Delete Files="$(FanControlPluginsDir)\FanControl.Plugins.dll" Condition="Exists('$(FanControlPluginsDir)\FanControl.Plugins.dll')" />
+    <Message Importance="High" Text="[PumpPID] Deployed to: $(FanControlPluginsDir)\$(TargetFileName)" />
+  </Target>
+
+</Project>

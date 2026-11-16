@@ -1,0 +1,26 @@
+﻿# Build results
+[Bb]in/
+[Oo]bj/
+out/
+release_package/
+
+# Visual Studio / Rider / VSCode
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Runtime generated telemetry, logs, author build script, and local binaries
+PumpPidLiveStatus.json
+PumpPidEvents.log
+*.log
+*.old
+*.pdb
+FanControl.Plugins.dll
+PumpPidConfigurator.exe
+Open-PID-Settings.bat
+Setup-And-Build.ps1
+*.zip
