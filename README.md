@@ -8,8 +8,8 @@
 [![Release](https://img.shields.io/github/v/release/CLipFire/FanControl.PumpPid)](https://github.com/CLipFire/FanControl.PumpPid/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/CLipFire/FanControl.PumpPid/total)](https://github.com/CLipFire/FanControl.PumpPid/releases)
 
-**📥 Скачать / Download:** **[FanControl.PumpPid-Release.zip](https://github.com/CLipFire/FanControl.PumpPid/releases/latest/download/FanControl.PumpPid-Release.zip)** · [последний релиз / latest release](https://github.com/CLipFire/FanControl.PumpPid/releases/latest) · [все релизы / all releases](https://github.com/CLipFire/FanControl.PumpPid/releases)
-
+>**📥 Скачать / Download:** **[FanControl.PumpPid-Release.zip](https://github.com/CLipFire/FanControl.PumpPid/releases/latest/download/FanControl.PumpPid-Release.zip)** · [последний релиз / latest release](https://github.com/CLipFire/FanControl.PumpPid/releases/latest) · [все релизы / all releases](https://>github.com/CLipFire/FanControl.PumpPid/releases)
+>
 > 🔗 **Официальный репозиторий FanControl на GitHub / Official FanControl GitHub Repository:**
 > **[https://github.com/Rem0o/FanControl.Releases](https://github.com/Rem0o/FanControl.Releases)** *(веб-сайт: [getfancontrol.com](https://getfancontrol.com/))*
 >
