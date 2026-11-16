@@ -454,6 +454,7 @@ namespace FanControl.PumpPid.Configurator
         private Label _lblKiTitle;
         private Label _lblKdTitle;
         private Label _lblTauTitle;
+        private Label _lblBandTitle;
 
         private Button _btnApply;
         private Label _lblTelHeader;
@@ -479,10 +480,13 @@ namespace FanControl.PumpPid.Configurator
         private NumericUpDown _numKi;
         private NumericUpDown _numKd;
         private NumericUpDown _numTau;
+        private NumericUpDown _numSettlingBand;
 
         private RadioButton _rbAuto;
         private RadioButton _rbManual;
         private NumericUpDown _numManualOut;
+        private CheckBox _chkFileLogging;
+        private CheckBox _chkAllowBridgeCard;
 
         private PidOscilloscopeControl _oscilloscope;
         private Label _lblMeasureBanner;
@@ -497,7 +501,7 @@ namespace FanControl.PumpPid.Configurator
         private string _lastActiveSensor = string.Empty;
         private string _lastUpdatedAt = string.Empty;
         private string _lastSavedTimeStr = string.Empty;
-        private bool _allowInputTempBridgeCard;
+        private bool _bridgeCardToggledInSession;
         private DateTime _lastComboRefreshUtc = DateTime.MinValue;
         private long _lastLogFileLength = -1;
         private DateTime _lastLogWriteUtc = DateTime.MinValue;
@@ -651,7 +655,7 @@ namespace FanControl.PumpPid.Configurator
             yLeft += 156;
 
             // 3. КОЭФФИЦИЕНТЫ PID И РЕЖИМ АВТО / РУЧНОЙ
-            Panel pnlPid = CreateCardPanel(14, yLeft, leftW, 164);
+            Panel pnlPid = CreateCardPanel(14, yLeft, leftW, 192);
             _lblSec3Title = CreateLabel("3. КОЭФФИЦИЕНТЫ PID И РЕЖИМ (БЕЗУДАРНЫЙ ПЕРЕХОД)", 12, 10, 470, 18,
                 new Font("Segoe UI", 9f, FontStyle.Bold), Color.FromArgb(56, 189, 248));
             pnlPid.Controls.Add(_lblSec3Title);
@@ -680,9 +684,15 @@ namespace FanControl.PumpPid.Configurator
             _numTau.ValueChanged += delegate { if (!_suppressEvents) SaveConfigFromUi(); };
             pnlPid.Controls.Add(_numTau);
 
+            _lblBandTitle = CreateLabel("Допуск ±°C:", 320, 76, 86, 20, Font, Color.FromArgb(203, 213, 225));
+            pnlPid.Controls.Add(_lblBandTitle);
+            _numSettlingBand = CreateNumeric(410, 73, 76, 0.1m, 5.0m, 0.1m, 2);
+            _numSettlingBand.ValueChanged += delegate { if (!_suppressEvents) SaveConfigFromUi(); };
+            pnlPid.Controls.Add(_numSettlingBand);
+
             _rbAuto = new RadioButton();
             _rbAuto.Text = "АВТО (PID-регулятор)";
-            _rbAuto.Location = new Point(12, 114);
+            _rbAuto.Location = new Point(12, 112);
             _rbAuto.Size = new Size(190, 24);
             _rbAuto.ForeColor = Color.FromArgb(52, 211, 153);
             _rbAuto.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
@@ -691,18 +701,43 @@ namespace FanControl.PumpPid.Configurator
 
             _rbManual = new RadioButton();
             _rbManual.Text = "РУЧНОЙ РЕЖИМ (%):";
-            _rbManual.Location = new Point(210, 114);
+            _rbManual.Location = new Point(210, 112);
             _rbManual.Size = new Size(180, 24);
             _rbManual.ForeColor = Color.FromArgb(251, 191, 36);
             _rbManual.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             pnlPid.Controls.Add(_rbManual);
 
-            _numManualOut = CreateNumeric(400, 113, 86, 0m, 100m, 1m, 1);
+            _numManualOut = CreateNumeric(400, 111, 86, 0m, 100m, 1m, 1);
             _numManualOut.ValueChanged += delegate { if (!_suppressEvents) SaveConfigFromUi(); };
             pnlPid.Controls.Add(_numManualOut);
 
+            _chkFileLogging = new CheckBox();
+            _chkFileLogging.Text = "Запись лога в файл";
+            _chkFileLogging.Location = new Point(12, 150);
+            _chkFileLogging.Size = new Size(185, 22);
+            _chkFileLogging.ForeColor = Color.FromArgb(203, 213, 225);
+            _chkFileLogging.Font = new Font("Segoe UI", 8.2f, FontStyle.Regular);
+            _chkFileLogging.Checked = true;
+            _chkFileLogging.CheckedChanged += delegate { if (!_suppressEvents) SaveConfigFromUi(); };
+            pnlPid.Controls.Add(_chkFileLogging);
+
+            _chkAllowBridgeCard = new CheckBox();
+            _chkAllowBridgeCard.Text = "Карточка входа T° (нужен перезапуск FC)";
+            _chkAllowBridgeCard.Location = new Point(202, 150);
+            _chkAllowBridgeCard.Size = new Size(286, 22);
+            _chkAllowBridgeCard.ForeColor = Color.FromArgb(148, 163, 184);
+            _chkAllowBridgeCard.Font = new Font("Segoe UI", 8.2f, FontStyle.Regular);
+            _chkAllowBridgeCard.Checked = false;
+            _chkAllowBridgeCard.CheckedChanged += delegate
+            {
+                if (_suppressEvents) return;
+                _bridgeCardToggledInSession = true;
+                SaveConfigFromUi();
+            };
+            pnlPid.Controls.Add(_chkAllowBridgeCard);
+
             Controls.Add(pnlPid);
-            yLeft += 174;
+            yLeft += 202;
 
             // Кнопка применения + Журнал событий слева внизу
             _btnApply = new Button();
@@ -724,7 +759,7 @@ namespace FanControl.PumpPid.Configurator
 
             _txtLog = new TextBox();
             _txtLog.Location = new Point(14, yLeft);
-            _txtLog.Size = new Size(leftW, 170);
+            _txtLog.Size = new Size(leftW, 142);
             _txtLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             _txtLog.Multiline = true;
             _txtLog.ReadOnly = true;
@@ -928,8 +963,11 @@ namespace FanControl.PumpPid.Configurator
                 _lblKiTitle.Text = "Ki (Int.):";
                 _lblKdTitle.Text = "Kd (Deriv.):";
                 _lblTauTitle.Text = "Derivative Filter Tau (sec):";
+                _lblBandTitle.Text = "Band ±°C:";
                 _rbAuto.Text = "AUTO (PID Controller)";
                 _rbManual.Text = "MANUAL MODE (%):";
+                _chkFileLogging.Text = "Log events to file";
+                _chkAllowBridgeCard.Text = "Input T° bridge card (needs FC restart)";
 
                 _btnApply.Text = "APPLY SETTINGS TO FANCONTROL (INSTANT HOT-RELOAD)";
                 _lblTelHeader.Text = "LIVE TELEMETRY FROM FANCONTROL";
@@ -954,8 +992,11 @@ namespace FanControl.PumpPid.Configurator
                 _lblKiTitle.Text = "Ki (Инт.):";
                 _lblKdTitle.Text = "Kd (Диф.):";
                 _lblTauTitle.Text = "Фильтр дифференциала Tau (сек):";
+                _lblBandTitle.Text = "Допуск ±°C:";
                 _rbAuto.Text = "АВТО (PID-регулятор)";
                 _rbManual.Text = "РУЧНОЙ РЕЖИМ (%):";
+                _chkFileLogging.Text = "Запись лога в файл";
+                _chkAllowBridgeCard.Text = "Карточка входа T° (нужен перезапуск FC)";
 
                 _btnApply.Text = "ПРИМЕНИТЬ НАСТРОЙКИ К FANCONTROL (МГНОВЕННО)";
                 _lblTelHeader.Text = "ТЕЛЕМЕТРИЯ РЕАЛЬНОГО ВРЕМЕНИ ИЗ FANCONTROL";
@@ -1000,6 +1041,12 @@ namespace FanControl.PumpPid.Configurator
                 _lblSaveStatus.Text = _isEnglish
                     ? "Ready. All changes are saved and applied automatically."
                     : "Готово к работе. Все изменения сохраняются автоматически.";
+            }
+            else if (_bridgeCardToggledInSession)
+            {
+                _lblSaveStatus.Text = _isEnglish
+                    ? ("Saved at " + _lastSavedTimeStr + " (restart FanControl to add/remove bridge card)")
+                    : ("Сохранено в " + _lastSavedTimeStr + " (для карточки входа перезапустите FanControl)");
             }
             else
             {
@@ -1064,10 +1111,12 @@ namespace FanControl.PumpPid.Configurator
                 _numKi.Value = 0.80m;
                 _numKd.Value = 1.80m;
                 _numTau.Value = 2.0m;
+                _numSettlingBand.Value = 0.30m;
                 _rbAuto.Checked = true;
                 _rbManual.Checked = false;
                 _numManualOut.Value = 50m;
-                _allowInputTempBridgeCard = false;
+                _chkFileLogging.Checked = true;
+                _chkAllowBridgeCard.Checked = false;
 
                 if (!File.Exists(_configPath)) return;
                 string json = File.ReadAllText(_configPath, Encoding.UTF8);
@@ -1088,12 +1137,14 @@ namespace FanControl.PumpPid.Configurator
                 _numKi.Value = ClampDec((decimal)ReadJsonFloat(json, "Ki", 0.8f), 0m, 20m);
                 _numKd.Value = ClampDec((decimal)ReadJsonFloat(json, "Kd", 1.8f), 0m, 30m);
                 _numTau.Value = ClampDec((decimal)ReadJsonFloat(json, "DerivativeFilterTau", 2.0f), 0.1m, 20m);
+                _numSettlingBand.Value = ClampDec((decimal)ReadJsonFloat(json, "SettlingBandCelsius", 0.3f), 0.1m, 5.0m);
 
                 bool isAuto = ReadJsonBool(json, "IsAutoMode", true);
                 _rbAuto.Checked = isAuto;
                 _rbManual.Checked = !isAuto;
                 _numManualOut.Value = ClampDec((decimal)ReadJsonFloat(json, "ManualOutputPercent", 50f), 0m, 100m);
-                _allowInputTempBridgeCard = ReadJsonBool(json, "AllowInputTempBridgeCard", false);
+                _chkFileLogging.Checked = ReadJsonBool(json, "EnableFileLogging", true);
+                _chkAllowBridgeCard.Checked = ReadJsonBool(json, "AllowInputTempBridgeCard", false);
             }
             catch
             {
@@ -1122,9 +1173,9 @@ namespace FanControl.PumpPid.Configurator
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"MaxOutputPercent\": {0:F0},", _numMaxOut.Value));
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"IsAutoMode\": {0},", _rbAuto.Checked ? "true" : "false"));
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"ManualOutputPercent\": {0:F1},", _numManualOut.Value));
-                sb.AppendLine("  \"EnableFileLogging\": true,");
-                sb.AppendLine("  \"SettlingBandCelsius\": 0.3,");
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"AllowInputTempBridgeCard\": {0}", _allowInputTempBridgeCard ? "true" : "false"));
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"EnableFileLogging\": {0},", _chkFileLogging.Checked ? "true" : "false"));
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SettlingBandCelsius\": {0:F2},", _numSettlingBand.Value));
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"AllowInputTempBridgeCard\": {0}", _chkAllowBridgeCard.Checked ? "true" : "false"));
                 sb.AppendLine("}");
 
                 File.WriteAllText(_configPath, sb.ToString(), Encoding.UTF8);

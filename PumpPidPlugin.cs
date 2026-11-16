@@ -132,6 +132,7 @@ namespace FanControl.PumpPid
         {
             this._container = _container;
             _initialDiscoveryCompleted = false;
+            _configManager?.CheckForExternalUpdates();
             var cfg = _configManager?.Current ?? new PumpPidConfig();
             float initialOut = BumplessPidController.Clamp(cfg.MinOutputPercent, cfg.MinOutputPercent, cfg.MaxOutputPercent);
 
@@ -142,7 +143,8 @@ namespace FanControl.PumpPid
                 initialOut);
             _container.TempSensors.Add(_pidOutputTempProxy);
 
-            // 2. Вспомогательная карточка-мост входа температуры создается ТОЛЬКО если явно включен флаг AllowInputTempBridgeCard = true в PumpPidConfig.json
+            // 2. Вспомогательная карточка-мост входа температуры создается в LoadCore ТОЛЬКО если явно включен флаг AllowInputTempBridgeCard = true
+            // (так как FanControl регистрирует карточки ControlSensors только на этапе Load плагина, изменение этого флага требует перезапуска FanControl)
             if (cfg.AllowInputTempBridgeCard)
             {
                 _inputTempBridgeCard = new PumpPidInputTempBridgeSensor(
