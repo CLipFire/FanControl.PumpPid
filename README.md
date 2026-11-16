@@ -5,6 +5,10 @@
 [![Runtime](https://img.shields.io/badge/.NET-Standard%202.0%20%7C%20.NET%204.8%20%2F%208.0-10b981)](#)
 [![GUI](https://img.shields.io/badge/GUI%20Configurator-RU%20%7C%20EN%20%2B%20Oscilloscope-f59e0b)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/CLipFire/FanControl.PumpPid)](https://github.com/CLipFire/FanControl.PumpPid/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/CLipFire/FanControl.PumpPid/total)](https://github.com/CLipFire/FanControl.PumpPid/releases)
+
+**📥 Скачать / Download:** **[FanControl.PumpPid-Release.zip](https://github.com/CLipFire/FanControl.PumpPid/releases/latest/download/FanControl.PumpPid-Release.zip)** · [последний релиз / latest release](https://github.com/CLipFire/FanControl.PumpPid/releases/latest) · [все релизы / all releases](https://github.com/CLipFire/FanControl.PumpPid/releases)
 
 > 🔗 **Официальный репозиторий FanControl на GitHub / Official FanControl GitHub Repository:**
 > **[https://github.com/Rem0o/FanControl.Releases](https://github.com/Rem0o/FanControl.Releases)** *(веб-сайт: [getfancontrol.com](https://getfancontrol.com/))*
@@ -52,7 +56,7 @@
 - **Совместимость с редакциями FanControl**:
   - Поддерживаются обе официальные сборки **FanControl** — как на базе **.NET Framework 4.8**, так и на базе **.NET 8.0+** (библиотека плагина `FanControl.PumpPid.dll` собрана под универсальный стандарт `.NET Standard 2.0`, а графический конфигуратор `PumpPidConfigurator.exe` скомпилирован под `AnyCPU` на базе штатного системного `.NET Framework 4.x`, встроенного в Windows 10/11 из коробки).
 - **Требования для установки**:
-  - Для **Варианта А (из архива `FanControl.PumpPid-Release.zip`)** никаких дополнительных компонентов устанавливать не нужно — всё работает сразу на стандартной Windows 10/11 с установленным FanControl.
+  - Для **Варианта А (из архива [`FanControl.PumpPid-Release.zip`](https://github.com/CLipFire/FanControl.PumpPid/releases/latest/download/FanControl.PumpPid-Release.zip))** никаких дополнительных компонентов устанавливать не нужно — всё работает сразу на стандартной Windows 10/11 с установленным FanControl.
   - Для **Варианта Б (скрипт сборки `Install-Plugin.ps1`)** требуется установленный **[.NET SDK 6.0 / 8.0 или новее](https://dotnet.microsoft.com/download)** (для выполнения команды компиляции `dotnet build`).
 
 ---
@@ -60,7 +64,7 @@
 ## 📦 Установка (2 способа)
 
 ### Вариант А: Ручная установка из готового архива (`FanControl.PumpPid-Release.zip`)
-1. Скачайте архив **`FanControl.PumpPid-Release.zip`** со страницы **Releases** на GitHub.
+1. Скачайте архив **[FanControl.PumpPid-Release.zip](https://github.com/CLipFire/FanControl.PumpPid/releases/latest/download/FanControl.PumpPid-Release.zip)** (прямая ссылка на последний релиз) или откройте [страницу релизов](https://github.com/CLipFire/FanControl.PumpPid/releases) и выберите нужную версию.
 2. **Важно для Windows**: перед распаковкой нажмите правой кнопкой мыши по скачанному `.zip` архиву → **Свойства** → поставьте галочку **«Разблокировать» (Unblock)** → **Применить** (чтобы Windows не блокировала загрузку `.dll` плагина).
 3. Скопируйте 3 файла из архива в папку **`Plugins`** вашего FanControl (например, `C:\Program Files\FanControl\Plugins\` или `C:\Program Files (x86)\FanControl\Plugins\`):
    - `FanControl.PumpPid.dll`
@@ -188,7 +192,7 @@
 - **FanControl Runtime Compatibility**:
   - Fully compatible with both official **FanControl** editions — **.NET Framework 4.8** and **.NET 8.0+** (the plugin library `FanControl.PumpPid.dll` targets universal `.NET Standard 2.0`, and `PumpPidConfigurator.exe` is compiled as `AnyCPU` against the built-in Windows `.NET Framework 4.x`).
 - **Installation Requirements**:
-  - **Option A (`FanControl.PumpPid-Release.zip`)**: Zero extra dependencies required — works out of the box on any Windows 10/11 PC with FanControl installed.
+  - **Option A ([`FanControl.PumpPid-Release.zip`](https://github.com/CLipFire/FanControl.PumpPid/releases/latest/download/FanControl.PumpPid-Release.zip))**: Zero extra dependencies required — works out of the box on any Windows 10/11 PC with FanControl installed.
   - **Option B (`Install-Plugin.ps1` source installer)**: Requires **[.NET SDK 6.0 / 8.0 or newer](https://dotnet.microsoft.com/download)** to compile the plugin from source via `dotnet build`.
 
 ---
@@ -196,7 +200,7 @@
 ## 📦 Installation (2 Options)
 
 ### Option A: Manual Install from Pre-Built Release Archive (`FanControl.PumpPid-Release.zip`)
-1. Download **`FanControl.PumpPid-Release.zip`** from the **Releases** page.
+1. Download **[FanControl.PumpPid-Release.zip](https://github.com/CLipFire/FanControl.PumpPid/releases/latest/download/FanControl.PumpPid-Release.zip)** (direct link to the latest release) or open the [Releases page](https://github.com/CLipFire/FanControl.PumpPid/releases) and pick the required version.
 2. **Important on Windows**: Right-click the downloaded `.zip` file → **Properties** → check **Unblock** → **Apply** before extracting.
 3. Copy the 3 files into your **`FanControl\Plugins\`** folder (e.g. `C:\Program Files\FanControl\Plugins\` or `C:\Program Files (x86)\FanControl\Plugins\`):
    - `FanControl.PumpPid.dll`
