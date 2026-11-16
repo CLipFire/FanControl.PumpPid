@@ -1,6 +1,7 @@
 ﻿# FanControl.PumpPid — Liquid Cooling Pump PID Controller & Oscilloscope for [FanControl](https://github.com/Rem0o/FanControl.Releases)
 
 [![Platform](https://img.shields.io/badge/FanControl-Plugin%20(IPlugin2)-0284c7)](https://github.com/Rem0o/FanControl.Releases)
+[![OS](https://img.shields.io/badge/OS-Windows%2010%20%7C%2011%20(x64)-0078D6)](#)
 [![Runtime](https://img.shields.io/badge/.NET-Standard%202.0%20%7C%20.NET%204.8%20%2F%208.0-10b981)](#)
 [![GUI](https://img.shields.io/badge/GUI%20Configurator-RU%20%7C%20EN%20%2B%20Oscilloscope-f59e0b)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -18,7 +19,7 @@
 **`FanControl.PumpPid`** — это специализированный плагин для **[FanControl](https://github.com/Rem0o/FanControl.Releases)** ([GitHub: Rem0o/FanControl.Releases](https://github.com/Rem0o/FanControl.Releases)), реализующий промышленный **пропорционально-интегрально-дифференциальный (PID) регулятор** для управления оборотами помпы жидкостного охлаждения (СЖО / кастомного контура / AIO) с собственным графическим конфигуратором **`PumpPidConfigurator.exe` (RU / EN)** и встроенным **двухканальным осциллографом переходных процессов**.
 
 > ⚠️ **ВАЖНОЕ ПРИМЕЧАНИЕ (Для пользователей, понимающих принципы настройки PID):**
-> Данный плагин представляет собой полноценный инженерный **PID-регулятор с обратной связью**, а не обычную температурную кривую. Регулятор предназначен для пользователей, которые **понимают физический смысл коэффициентов `Kp`, `Ki`, `Kd` и постоянной времени фильтра `Tau`**, а также умеют настраивать их под тепловую инерцию своего контура СЖО с помощью встроенного осциллографа. Некорректный подбор коэффициентов (например, сильно завышенный `Kp` или `Ki`) может привести к слишком резкому управлению, автоколебаниям оборотов помпы или недостаточному охлаждению.
+> Данный плагин представляет собой полноценный инженерный **PID-регулятор с обратной связью**, а не обычную температурную кривую. Регулятор предназначен для пользователей, которые **понимают физический смысл коэффициентов `Kp`, `Ki`, `Kd` и постоянной времени фильтра `Tau`**, а также умеют настраивать их под тепловую инерцию своего контура СЖО. Некорректный подбор коэффициентов (например, сильно завышенный `Kp` или `Ki`) может привести к слишком резкому управлению, автоколебаниям оборотов помпы или недостаточному охлаждению.
 
 ---
 
@@ -42,6 +43,20 @@
 
 ---
 
+## 💻 Поддерживаемые операционные системы и системные требования
+
+- **Поддерживаемые ОС**:
+  - **Microsoft Windows 10** (`64-bit / x64`, сборка 1809 и новее)
+  - **Microsoft Windows 11** (`64-bit / x64`, все версии: 21H2, 22H2, 23H2, 24H2+)
+  - **Microsoft Windows Server 2019 / 2022** (`x64`)
+- **Совместимость с редакциями FanControl**:
+  - Поддерживаются обе официальные сборки **FanControl** — как на базе **.NET Framework 4.8**, так и на базе **.NET 8.0+** (библиотека плагина `FanControl.PumpPid.dll` собрана под универсальный стандарт `.NET Standard 2.0`, а графический конфигуратор `PumpPidConfigurator.exe` скомпилирован под `AnyCPU` на базе штатного системного `.NET Framework 4.x`, встроенного в Windows 10/11 из коробки).
+- **Требования для установки**:
+  - Для **Варианта А (из архива `FanControl.PumpPid-Release.zip`)** никаких дополнительных компонентов устанавливать не нужно — всё работает сразу на стандартной Windows 10/11 с установленным FanControl.
+  - Для **Варианта Б (скрипт сборки `Install-Plugin.ps1`)** требуется установленный **[.NET SDK 6.0 / 8.0 или новее](https://dotnet.microsoft.com/download)** (для выполнения команды компиляции `dotnet build`).
+
+---
+
 ## 📦 Установка (2 способа)
 
 ### Вариант А: Ручная установка из готового архива (`FanControl.PumpPid-Release.zip`)
@@ -59,7 +74,7 @@
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\Install-Plugin.ps1
    ```
-2. Скрипт автоматически найдет установленный у вас `FanControl.exe`, скомпилирует актуальные исходные файлы (`.cs` / `.csproj`) из папки репозитория в изолированной системной директории (`%TEMP%`), поместит **только 3 готовых файла** (`FanControl.PumpPid.dll`, `PumpPidConfigurator.exe`, `PumpPidConfig.json`) напрямую в папку `FanControl\Plugins\`, полностью очистит временные файлы сборки (не создавая никаких `.zip`-архивов) и откроет окно настройки!
+2. Скрипт автоматически найдет установленный у вас `FanControl.exe`, скомпилирует актуальные исходные файлы (`.cs` / `.csproj`) из папки репозитория в изолированной системной директории (`%TEMP%`), поместит готовые файлы напрямую в папку `FanControl\Plugins\`, **создаст ярлык `Pump PID Configurator` на Рабочем столе** и откроет окно настройки!
 
 > ⚠️ **ВНИМАНИЕ:** Никогда не копируйте сам файл `FanControl.Plugins.dll` внутрь подпапки `FanControl\Plugins\`! Этот файл уже лежит в корневой папке рядом с `FanControl.exe`. Наличие дубликата в папке `Plugins` вызовет конфликт типов .NET (`Type Identity mismatch`).
 
@@ -85,8 +100,8 @@
 2. Включите управление и выберите в поле **«Кривая» (Curve)** созданную кривую **`PID Out`**.
 
 ### Шаг 3. КРИТИЧЕСКИ ВАЖНО: Настройте «Шаг вверх / Шаг вниз» (Step Up / Step Down) у помпы
-В карточке помпы в FanControl есть параметры ограничения скорости изменения процента в секунду (**«Шаг вверх» / «Шаг вниз»**, по умолчанию часто стоит `2 %/sec`).
-- Если оставить `2 %/sec`, то когда PID-регулятор при резком нагреве процессора скомандует поднять обороты с `25%` до `75%`, сам FanControl будет искусственно растягивать этот подъем на **25 секунд**! Из-за этого возникнет фазовое запаздывание, перегрев и медленные автоколебания («качели»).
+В карточке помпы в FanControl есть параметры ограничения скорости изменения процента в секунду (**«Шаг вверх» / «Шаг вниз»**, по умолчанию часто стоит `5 %/sec`).
+- Если оставить `5 %/sec`, то когда PID-регулятор при резком нагреве процессора скомандует поднять обороты с `25%` до `75%`, сам FanControl будет искусственно растягивать этот подъем на **10 секунд**! Из-за этого возникнет фазовое запаздывание, перегрев и медленные автоколебания («качели»).
 - **Рекомендуемые значения для карточки помпы**:
   - **Шаг вверх (Step Up)**: **`15 %/sec` — `25 %/sec`** (чтобы помпа быстро реагировала на P и D составляющие).
   - **Шаг вниз (Step Down)**: **`10 %/sec` — `15 %/sec`** (плавное снижение оборотов после снятия нагрузки).
@@ -109,11 +124,11 @@
    - **Целевая уставка (`°C`)**: температура, которую регулятор стремится удерживать (по умолчанию `60.0 °C`).
    - **Мин. обороты (`Min %`) / Макс. обороты (`Max %`)**: рабочие границы вашей помпы (по умолчанию `25% .. 75%`).
 4. **3. Коэффициенты PID, опции и режим (`АВТО` / `РУЧНОЙ`)**:
-   - **`Kp` (Пропорциональный, по умолчанию `0.40`)**: на сколько `%` мгновенно изменится мощность помпы при отклонении температуры на `1 °C`.
-   - **`Ki` (Интегральный, по умолчанию `0.80`)**: скорость накопления коррекции (`% / (°C·с)`) для плавного доведения температуры до целевой уставки.
-   - **`Kd` (Дифференциальный, по умолчанию `1.80`)**: реакция на скорость роста температуры (`%·с / °C`) — дает упреждающий импульс помпе при резком скачке нагрузки.
+   - **`Kp` (Пропорциональный, по умолчанию `0.20`)**: на сколько `%` мгновенно изменится мощность помпы при отклонении температуры на `1 °C`.
+   - **`Ki` (Интегральный, по умолчанию `0.40`)**: скорость накопления коррекции (`% / (°C·с)`) для плавного доведения температуры до целевой уставки.
+   - **`Kd` (Дифференциальный, по умолчанию `1.20`)**: реакция на скорость роста температуры (`%·с / °C`) — дает упреждающий импульс помпе при резком скачке нагрузки.
    - **`Tau` (сек, по умолчанию `2.0 с`)**: постоянная времени фильтра сглаживания дифференциала.
-   - **`Допуск ±°C` (`SettlingBandCelsius`, по умолчанию `0.30 °C`)**: коридор стабилизации вокруг уставки для замера времени выхода на режим.
+   - **`Допуск ±°C` (`SettlingBandCelsius`, по умолчанию `0.50 °C`)**: коридор стабилизации вокруг уставки для замера времени выхода на режим.
    - **Галочка «Запись лога событий в файл (PumpPidEvents.log)» (`EnableFileLogging`)**: включает/отключает запись событий (включая все изменения конфигурации `[CONFIG_CHANGE]`) в `PumpPidEvents.log` на лету.
 5. **Осциллограф переходных процессов и замер интервала мышью**:
    - **Кнопка «Сетка: 5 сек / 10 сек»**: переключает шаг вертикальных линий разметки времени.
@@ -123,14 +138,14 @@
 
 ## 📊 Параметры по умолчанию и стартовые пресеты PID
 
-> 💡 **Рекомендация по настройке:** Всегда начинайте с **Базового профиля по умолчанию** (`Kp = 0.40`, `Ki = 0.80`, `Kd = 1.80`, `Tau = 2.0 с`). Избегайте чрезмерно высоких значений `Kp` (выше `1.5–2.0`), так как они превращают плавный регулятор в резкое релейное переключение оборотов помпы.
+> 💡 **Рекомендация по настройке:** Всегда начинайте с **Базового профиля по умолчанию** (`Kp = 0.20`, `Ki = 0.40`, `Kd = 1.20`, `Tau = 2.0 с`). Избегайте чрезмерно высоких значений `Kp` (выше `1.5–2.0`), так как они превращают плавный регулятор в резкое релейное переключение оборотов помпы.
 
 | Профиль / Тип датчика | Уставка (`°C`) | Диапазон (`Min..Max`) | `Kp` | `Ki` | `Kd` | `Tau (с)` | Особенности поведения |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **1. По умолчанию (Базовый сбалансированный)** | `60.0 °C` | `25% .. 75%` | **`0.40`** | **`0.80`** | **`1.80`** | **`2.0`** | **Стандартный профиль из коробки.** Плавная работа без резких рывков помпы + уверенное упреждение нагрева за счет `Kd = 1.8` |
-| **2. Тихий / Мягкий контур (`Silent / Smooth`)** | `62.0 °C` | `25% .. 70%` | `0.25` | `0.50` | `1.20` | `2.5` | Максимально мягкий и бесшумный набор оборотов; увеличенный фильтр `Tau = 2.5 с` полностью игнорирует краткие всплески буста |
-| **3. Динамичный (`High Load / Быстрый отклик`)** | `58.0 °C` | `30% .. 85%` | `0.65` | `1.00` | `2.40` | `1.5` | Усиленный упреждающий импульс при резком старте рендеринга или стресс-тестов |
-| **4. Датчик жидкости СЖО (`Water / Coolant Temp`)** | `38.0 °C` | `25% .. 75%` | `0.80` | `1.10` | `2.00` | `1.5` | Адаптирован под высокую теплоемкость и медленное изменение температуры жидкости в контуре |
+| **1. По умолчанию (Базовый сбалансированный)** | `60.0 °C` | `25% .. 75%` | **`0.20`** | **`0.40`** | **`1.20`** | **`2.0`** | **Стандартный профиль из коробки.** Плавная работа без резких рывков помпы + уверенное упреждение нагрева за счет `Kd = 1.2` |
+| **2. Тихий / Мягкий контур (`Silent / Smooth`)** | `65.0 °C` | `25% .. 70%` | `0.05` | `0.15` | `0.40` | `3.0` | Максимально мягкий и бесшумный набор оборотов; увеличенный фильтр `Tau = 3.0 с` полностью игнорирует краткие всплески буста |
+| **3. Динамичный (`High Load / Быстрый отклик`)** | `55.0 °C` | `30% .. 85%` | `0.50` | `1.00` | `1.80` | `1.5` | Усиленный упреждающий импульс при резком старте рендеринга или стресс-тестов |
+| **4. Датчик жидкости СЖО (`Water / Coolant Temp`)** | `38.0 °C` | `25% .. 75%` | `0.10` | `0.20` | `0.25` | `1.5` | Адаптирован под высокую теплоемкость и медленное изменение температуры жидкости в контуре |
 
 ---
 ---
@@ -140,7 +155,7 @@
 **`FanControl.PumpPid`** is a dedicated **[FanControl](https://github.com/Rem0o/FanControl.Releases)** ([GitHub: Rem0o/FanControl.Releases](https://github.com/Rem0o/FanControl.Releases)) plugin (`IPlugin2`) that brings an industrial-grade **PID Controller with Bumpless Transfer** to liquid cooling pumps (AIO & custom water loops), complete with a standalone **bilingual GUI Configurator (`PumpPidConfigurator.exe` with `RU | EN` toggle)** and a **real-time dual-channel GDI+ transient oscilloscope**.
 
 > ⚠️ **IMPORTANT NOTICE (Intended for Users Familiar with PID Tuning):**
-> This plugin implements a true closed-loop **PID Controller**, not a simple temperature lookup curve. It is designed for users who **understand how PID control loops work and how to tune `Kp`, `Ki`, `Kd`, and derivative filter `Tau` coefficients** for the thermal inertia of their specific cooling loop using the built-in oscilloscope. Improperly tuned or overly aggressive gains can cause abrupt pump speed swings, oscillations, or suboptimal cooling.
+> This plugin implements a true closed-loop **PID Controller**, not a simple temperature lookup curve. It is designed for users who **understand how PID control loops work and how to tune `Kp`, `Ki`, `Kd`, and derivative filter `Tau` coefficients** for the thermal inertia of their specific cooling loop. Improperly tuned or overly aggressive gains (such as excessively high `Kp` or `Ki`) can cause abrupt pump speed swings, oscillations, or suboptimal cooling.
 
 ---
 
@@ -164,6 +179,20 @@
 
 ---
 
+## 💻 Supported Operating Systems & System Requirements
+
+- **Supported Operating Systems**:
+  - **Microsoft Windows 10** (`64-bit / x64`, version 1809 or newer)
+  - **Microsoft Windows 11** (`64-bit / x64`, all releases: 21H2, 22H2, 23H2, 24H2+)
+  - **Microsoft Windows Server 2019 / 2022** (`x64`)
+- **FanControl Runtime Compatibility**:
+  - Fully compatible with both official **FanControl** editions — **.NET Framework 4.8** and **.NET 8.0+** (the plugin library `FanControl.PumpPid.dll` targets universal `.NET Standard 2.0`, and `PumpPidConfigurator.exe` is compiled as `AnyCPU` against the built-in Windows `.NET Framework 4.x`).
+- **Installation Requirements**:
+  - **Option A (`FanControl.PumpPid-Release.zip`)**: Zero extra dependencies required — works out of the box on any Windows 10/11 PC with FanControl installed.
+  - **Option B (`Install-Plugin.ps1` source installer)**: Requires **[.NET SDK 6.0 / 8.0 or newer](https://dotnet.microsoft.com/download)** to compile the plugin from source via `dotnet build`.
+
+---
+
 ## 📦 Installation (2 Options)
 
 ### Option A: Manual Install from Pre-Built Release Archive (`FanControl.PumpPid-Release.zip`)
@@ -181,7 +210,7 @@ If you cloned or downloaded the source repository and want a 1-click script that
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\Install-Plugin.ps1
    ```
-2. The script automatically locates your `FanControl.exe` installation, compiles the repository's `.cs` and `.csproj` source files inside an isolated system `%TEMP%` folder, copies **only the 3 required files** (`FanControl.PumpPid.dll`, `PumpPidConfigurator.exe`, `PumpPidConfig.json`) directly into `FanControl\Plugins\`, cleans up all temporary build files (without generating any `.zip` archives), and launches the GUI Configurator.
+2. The script automatically locates your `FanControl.exe` installation, compiles the repository's `.cs` and `.csproj` source files inside an isolated system `%TEMP%` folder, places the compiled files directly into `FanControl\Plugins\`, **creates a `Pump PID Configurator` shortcut on your Desktop**, and launches the GUI Configurator!
 
 > ⚠️ **IMPORTANT:** Never copy `FanControl.Plugins.dll` into the `FanControl\Plugins\` subfolder! `FanControl.Plugins.dll` already resides in the root `FanControl` directory next to `FanControl.exe`.
 
@@ -205,32 +234,52 @@ Perform this one-time setup inside the FanControl UI to connect the PID controll
 2. Enable control and select the **`PID Out`** curve.
 
 ### Step 3. CRITICAL: Adjust `Step Up` / `Step Down` Rate on Your Pump Card
-FanControl's control cards have a built-in rate limiter (**Step Up / Step Down**, often defaulting to `2 %/sec`).
-- If left at `2 %/sec`, a `50%` PID response will be artificially throttled over **25 seconds**, introducing phase lag and slow oscillations.
+FanControl's control cards have a built-in rate limiter (**Step Up / Step Down**, often defaulting to `5 %/sec`).
+- If left at `5 %/sec`, a `50%` PID response (from `25%` to `75%`) will be artificially stretched over **10 seconds**, introducing phase lag, overheating, and slow oscillations.
 - **Recommended Pump Card settings**:
    - **Step Up**: **`15 %/sec` – `25 %/sec`** (allows immediate P and D response).
    - **Step Down**: **`10 %/sec` – `15 %/sec`** (smooth ramp-down after load drops).
+   - **Minimum %**: set equal to or slightly below your `Min %` in the PID configurator (e.g. `20%` or `25%`).
 
 ---
 
 ## 🖥️ Using `PumpPidConfigurator.exe` (RU / EN)
 
 Launch **`PumpPidConfigurator.exe`** directly from `FanControl\Plugins\` (or any folder while FanControl is running):
-1. Click **`EN`** or **`RU`** in the top-right corner to switch the interface language at any time.
-2. Select your desired **System** (`[System]`) or **Custom** (`★ [Custom]`) temperature sensor directly from the dropdown in `PumpPidConfigurator.exe` (if FanControl just started, wait ~8 seconds and click **Refresh List**).
-3. Adjust **Target Setpoint (°C)** (default `60.0 °C`), **Min / Max Pump Speed (%)** (default `25% .. 75%`), **PID Gains (`Kp = 0.40`, `Ki = 0.80`, `Kd = 1.80`, `Tau = 2.0 s`)**, **Band ±°C (`SettlingBandCelsius`)**, and **Log events to file (`EnableFileLogging`)** — all settings are hot-reloaded by FanControl within 0.5 seconds without restarting FanControl.
-4. **Interactive Oscilloscope Measurement**: Hold the **Left Mouse Button** on the chart and drag horizontally across any transient to measure $\Delta t$ (seconds), $\Delta T$ ($^circ\text{C/s}$), and $\Delta U$ ($\text{%/s}$). Right-click or press **Reset Measure** to clear.
+
+1. **Language Switch (`RU` | `EN`)**:
+   - Click **`EN`** or **`RU`** in the top-right corner to switch the interface language at any time. Your selection is saved automatically.
+2. **1. Temperature Sensor Selection (Source)**:
+   - Select your desired temperature sensor directly from the dropdown in `PumpPidConfigurator.exe`, which lists all sensors discovered in the running FanControl instance with live temperature readings:
+     - `★ [Custom]` / `★ [Пользовательский]` — your FanControl Custom Sensors (e.g., `Time Avg CPU max`, `Mix CPU\GPU`).
+     - `[System]` / `[Системный]` — hardware sensors for CPU, GPU, motherboard, and AIO/loop coolant temperature.
+   - *Note*: If you just started FanControl, wait 8–10 seconds for FanControl to initialize all sensors and click **Refresh List**.
+3. **2. Setpoint (`°C`) & Pump Speed Range (`Min % — Max %`)**:
+   - **Target Setpoint (`°C`)**: the target temperature maintained by the controller (default `60.0 °C`).
+   - **Min Pump Speed (`Min %`) / Max Pump Speed (`Max %`)**: safe operating bounds for your pump (default `25% .. 75%`).
+4. **3. PID Gains, Options & Mode (`AUTO` / `MANUAL`)**:
+   - **`Kp` (Proportional, default `0.20`)**: immediate pump speed change in `%` per `1 °C` of temperature error.
+   - **`Ki` (Integral, default `0.40`)**: accumulation rate (`% / (°C·s)`) that smoothly drives steady-state temperature to the setpoint.
+   - **`Kd` (Derivative, default `1.20`)**: response to the rate of temperature rise (`%·s / °C`) — provides a feed-forward boost during sudden heat spikes.
+   - **`Tau` (sec, default `2.0 s`)**: time constant of the derivative low-pass smoothing filter.
+   - **`Band ±°C` (`SettlingBandCelsius`, default `0.50 °C`)**: settling tolerance band around the setpoint used for measuring transient settling time.
+   - **Checkbox "Log events to file (PumpPidEvents.log)" (`EnableFileLogging`)**: enables or disables live event logging (including all `[CONFIG_CHANGE]` events) to `PumpPidEvents.log` on the fly.
+5. **Transient Oscilloscope & Mouse Interval Measurement**:
+   - **Grid Button (`5 sec / 10 sec`)**: toggles the vertical time grid spacing.
+   - **Mouse Measurement**: Hold the **Left Mouse Button** on the chart and drag horizontally across any transient to measure $\Delta t$ (seconds), $\Delta T$ ($^circ\text{C/s}$), and $\Delta U$ ($\text{%/s}$). Right-click or press **Reset Measure** to clear.
 
 ---
 
 ## 📊 Default Parameters & Recommended PID Presets
 
+> 💡 **Tuning Recommendation:** Always start with the **Default Balanced Profile** (`Kp = 0.20`, `Ki = 0.40`, `Kd = 1.20`, `Tau = 2.0 s`). Avoid excessively high `Kp` values (above `1.5–2.0`), as they turn smooth proportional-integral control into abrupt on/off pump switching.
+
 | Profile / Sensor Type | Setpoint (`°C`) | Pump Range (`Min..Max`) | `Kp` | `Ki` | `Kd` | `Tau (s)` | Behavior Characteristics |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **1. Default Balanced (Out-of-the-Box)** | `60.0 °C` | `25% .. 75%` | **`0.40`** | **`0.80`** | **`1.80`** | **`2.0`** | **Default profile.** Smooth integral tracking without abrupt pump jumps + responsive derivative damping (`Kd = 1.8`) |
-| **2. Silent / Smooth Curve** | `62.0 °C` | `25% .. 70%` | `0.25` | `0.50` | `1.20` | `2.5` | Ultra-gentle acoustic transitions; higher `Tau = 2.5 s` filters out brief CPU boost spikes |
-| **3. Dynamic / High Heat Load** | `58.0 °C` | `30% .. 85%` | `0.65` | `1.00` | `2.40` | `1.5` | Stronger feed-forward derivative kick during heavy rendering or stress tests |
-| **4. Coolant / Water Temp Sensor** | `38.0 °C` | `25% .. 75%` | `0.80` | `1.10` | `2.00` | `1.5` | Tuned for the higher thermal mass and slower temperature rate of liquid coolant sensors |
+| **1. Default Balanced (Out-of-the-Box)** | `60.0 °C` | `25% .. 75%` | **`0.20`** | **`0.40`** | **`1.20`** | **`2.0`** | **Default profile.** Smooth operation without abrupt pump jumps + confident thermal anticipation (`Kd = 1.2`) |
+| **2. Silent / Smooth Curve** | `65.0 °C` | `25% .. 70%` | `0.05` | `0.15` | `0.40` | `3.0` | Ultra-gentle, near-silent speed transitions; higher filter `Tau = 3.0 s` completely ignores brief boost spikes |
+| **3. Dynamic / High Heat Load** | `55.0 °C` | `30% .. 85%` | `0.50` | `1.00` | `1.80` | `1.5` | Stronger feed-forward derivative boost at the onset of rendering or stress tests |
+| **4. Coolant / Water Temp Sensor** | `38.0 °C` | `25% .. 75%` | `0.10` | `0.20` | `0.25` | `1.5` | Adapted for the high thermal capacity and gradual temperature changes of liquid coolant in the loop |
 
 ---
 

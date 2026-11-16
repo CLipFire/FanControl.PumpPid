@@ -9,31 +9,49 @@ namespace FanControl.PumpPid
 {
     public sealed class PumpPidConfig
     {
-        public string UiLanguage { get; set; } = "ru";
-        public string SourceSensorId { get; set; } = "Core Average";
-        public float SetpointCelsius { get; set; } = 60f;
-        public float Kp { get; set; } = 0.4f;
-        public float Ki { get; set; } = 0.8f;
-        public float Kd { get; set; } = 1.8f;
-        public float DerivativeFilterTau { get; set; } = 2f;
-        public float MinOutputPercent { get; set; } = 25f;
-        public float MaxOutputPercent { get; set; } = 75f;
-        public bool IsAutoMode { get; set; } = true;
-        public float ManualOutputPercent { get; set; } = 25f;
-        public bool EnableFileLogging { get; set; } = true;
-        public float SettlingBandCelsius { get; set; } = 0.3f;
+        public string UiLanguage { get; set; }
+        public string SourceSensorId { get; set; }
+        public float SetpointCelsius { get; set; }
+        public float Kp { get; set; }
+        public float Ki { get; set; }
+        public float Kd { get; set; }
+        public float DerivativeFilterTau { get; set; }
+        public float MinOutputPercent { get; set; }
+        public float MaxOutputPercent { get; set; }
+        public bool IsAutoMode { get; set; }
+        public float ManualOutputPercent { get; set; }
+        public bool EnableFileLogging { get; set; }
+        public float SettlingBandCelsius { get; set; }
+
+        public PumpPidConfig()
+        {
+            UiLanguage = "ru";
+            SourceSensorId = "Core Average";
+            SetpointCelsius = 60f;
+            Kp = 0.2f;
+            Ki = 0.4f;
+            Kd = 1.2f;
+            DerivativeFilterTau = 2f;
+            MinOutputPercent = 25f;
+            MaxOutputPercent = 75f;
+            IsAutoMode = true;
+            ManualOutputPercent = 25f;
+            EnableFileLogging = true;
+            SettlingBandCelsius = 0.5f;
+        }
     }
 
     /// <summary>
-    /// Потокобезопасный менеджер конфигурации с горячей перезагрузкой (FileSystemWatcher + проверка времени записи).
-    /// Фиксирует все изменения параметров конфигурации в английском логе [CONFIG_CHANGE].
+    /// Единый менеджер конфигурации для плагина (FanControl.PumpPid.dll) и конфигуратора (PumpPidConfigurator.exe).
+    /// Поддерживает горячую перезагрузку (FileSystemWatcher + проверка времени записи)
+    /// и единую логику сравнения параметров (BuildConfigDiff) с записью в лог через PumpPidEventLogger.
     /// </summary>
     public sealed class PumpPidConfigManager : IDisposable
     {
         private readonly string _configPath;
         private readonly PumpPidEventLogger _eventLogger;
         private readonly object _syncLock = new object();
-        private FileSystemWatcher? _watcher;
+        private FileSystemWatcher _watcher;
         private DateTime _lastReloadTime = DateTime.MinValue;
         private DateTime _lastKnownFileWriteUtc = DateTime.MinValue;
         private PumpPidConfig _current = new PumpPidConfig();
@@ -78,14 +96,12 @@ namespace FanControl.PumpPid
                     ReloadFromFile();
                 }
 
-                string? dir = Path.GetDirectoryName(_configPath);
+                string dir = Path.GetDirectoryName(_configPath);
                 string fileName = Path.GetFileName(_configPath);
                 if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
                 {
-                    _watcher = new FileSystemWatcher(dir, fileName)
-                    {
-                        NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName
-                    };
+                    _watcher = new FileSystemWatcher(dir, fileName);
+                    _watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName;
                     _watcher.Changed += OnConfigFileChanged;
                     _watcher.Created += OnConfigFileChanged;
                     _watcher.EnableRaisingEvents = true;
@@ -159,7 +175,7 @@ namespace FanControl.PumpPid
                     List<string> changes = BuildConfigDiff(prev, loaded);
                     if (changes.Count > 0)
                     {
-                        if (loaded.EnableFileLogging)
+                        if (loaded.EnableFileLogging || prev.EnableFileLogging)
                         {
                             _eventLogger.EnableFileLogging = true;
                         }
@@ -169,7 +185,7 @@ namespace FanControl.PumpPid
                             string.Format(
                                 CultureInfo.InvariantCulture,
                                 "Configuration updated [{0}] | Active: {1}",
-                                string.Join(", ", changes),
+                                string.Join(", ", changes.ToArray()),
                                 FormatConfigSummary(loaded)));
 
                         _eventLogger.EnableFileLogging = loaded.EnableFileLogging;
@@ -184,7 +200,7 @@ namespace FanControl.PumpPid
 
         public static List<string> BuildConfigDiff(PumpPidConfig prev, PumpPidConfig next)
         {
-            var changes = new List<string>();
+            List<string> changes = new List<string>();
             if (!string.Equals(prev.SourceSensorId ?? string.Empty, next.SourceSensorId ?? string.Empty, StringComparison.Ordinal))
                 changes.Add(string.Format(CultureInfo.InvariantCulture, "Sensor: '{0}' -> '{1}'", prev.SourceSensorId, next.SourceSensorId));
             if (Math.Abs(prev.SetpointCelsius - next.SetpointCelsius) > 0.001f)
@@ -233,27 +249,64 @@ namespace FanControl.PumpPid
                 cfg.EnableFileLogging ? "true" : "false");
         }
 
+        public static string SerializeJson(PumpPidConfig cfg)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"UiLanguage\": \"{0}\",", EscapeString(cfg.UiLanguage ?? "ru")));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SourceSensorId\": \"{0}\",", EscapeString(cfg.SourceSensorId)));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SetpointCelsius\": {0:F1},", cfg.SetpointCelsius));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"Kp\": {0:F2},", cfg.Kp));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"Ki\": {0:F2},", cfg.Ki));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"Kd\": {0:F2},", cfg.Kd));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"DerivativeFilterTau\": {0:F1},", cfg.DerivativeFilterTau));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"MinOutputPercent\": {0:F0},", cfg.MinOutputPercent));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"MaxOutputPercent\": {0:F0},", cfg.MaxOutputPercent));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"IsAutoMode\": {0},", cfg.IsAutoMode ? "true" : "false"));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"ManualOutputPercent\": {0:F1},", cfg.ManualOutputPercent));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"EnableFileLogging\": {0},", cfg.EnableFileLogging ? "true" : "false"));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SettlingBandCelsius\": {0:F2}", cfg.SettlingBandCelsius));
+            sb.AppendLine("}");
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Сохраняет конфигурацию и записывает дифф изменений через единый PumpPidEventLogger
+        /// (с ротацией > 512 КБ, межпроцессным мьютексом и защитой от дублирования с плагином).
+        /// </summary>
+        public static void SaveAndLogChanges(string configPath, PumpPidConfig next, PumpPidEventLogger eventLogger)
+        {
+            bool hadExistingFile = File.Exists(configPath);
+            string oldJson = hadExistingFile ? File.ReadAllText(configPath, Encoding.UTF8) : string.Empty;
+            PumpPidConfig prev = hadExistingFile ? ParseJson(oldJson, new PumpPidConfig()) : new PumpPidConfig();
+
+            File.WriteAllText(configPath, SerializeJson(next), Encoding.UTF8);
+
+            if (eventLogger == null)
+                return;
+
+            List<string> diffs = hadExistingFile ? BuildConfigDiff(prev, next) : new List<string>();
+            if (!hadExistingFile || diffs.Count > 0)
+            {
+                bool shouldLog = next.EnableFileLogging || (hadExistingFile && prev.EnableFileLogging);
+                eventLogger.EnableFileLogging = shouldLog;
+                if (shouldLog)
+                {
+                    string summary = FormatConfigSummary(next);
+                    string message = diffs.Count > 0
+                        ? string.Format(CultureInfo.InvariantCulture, "Configuration updated [{0}] | Active: {1}", string.Join(", ", diffs.ToArray()), summary)
+                        : ("Configuration saved: " + summary);
+                    eventLogger.LogEvent(PidEventCategory.ConfigChange, message);
+                }
+                eventLogger.EnableFileLogging = next.EnableFileLogging;
+            }
+        }
+
         public void Save(PumpPidConfig cfg)
         {
             try
             {
-                var sb = new StringBuilder();
-                sb.AppendLine("{");
-                sb.AppendLine($"  \"UiLanguage\": \"{EscapeString(cfg.UiLanguage ?? "ru")}\",");
-                sb.AppendLine($"  \"SourceSensorId\": \"{EscapeString(cfg.SourceSensorId)}\",");
-                sb.AppendLine($"  \"SetpointCelsius\": {cfg.SetpointCelsius.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"Kp\": {cfg.Kp.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"Ki\": {cfg.Ki.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"Kd\": {cfg.Kd.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"DerivativeFilterTau\": {cfg.DerivativeFilterTau.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"MinOutputPercent\": {cfg.MinOutputPercent.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"MaxOutputPercent\": {cfg.MaxOutputPercent.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"IsAutoMode\": {(cfg.IsAutoMode ? "true" : "false")},");
-                sb.AppendLine($"  \"ManualOutputPercent\": {cfg.ManualOutputPercent.ToString(CultureInfo.InvariantCulture)},");
-                sb.AppendLine($"  \"EnableFileLogging\": {(cfg.EnableFileLogging ? "true" : "false")},");
-                sb.AppendLine($"  \"SettlingBandCelsius\": {cfg.SettlingBandCelsius.ToString(CultureInfo.InvariantCulture)}");
-                sb.AppendLine("}");
-                File.WriteAllText(_configPath, sb.ToString(), Encoding.UTF8);
+                File.WriteAllText(_configPath, SerializeJson(cfg), Encoding.UTF8);
                 _lastKnownFileWriteUtc = File.GetLastWriteTimeUtc(_configPath);
             }
             catch (Exception ex)
@@ -262,11 +315,15 @@ namespace FanControl.PumpPid
             }
         }
 
-        public static string EscapeString(string s) => (s ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"");
-
-        private static PumpPidConfig ParseJson(string json, PumpPidConfig fallback)
+        public static string EscapeString(string s)
         {
-            var cfg = new PumpPidConfig
+            return (s ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"");
+        }
+
+        public static PumpPidConfig ParseJson(string json, PumpPidConfig fallback)
+        {
+            if (fallback == null) fallback = new PumpPidConfig();
+            PumpPidConfig cfg = new PumpPidConfig
             {
                 UiLanguage = ReadString(json, "UiLanguage", fallback.UiLanguage ?? "ru"),
                 SourceSensorId = ReadString(json, "SourceSensorId", fallback.SourceSensorId),
@@ -285,24 +342,29 @@ namespace FanControl.PumpPid
             return cfg;
         }
 
-        private static string ReadString(string json, string key, string defaultVal)
+        public static string ReadString(string json, string key, string defaultVal)
         {
-            var m = Regex.Match(json, $"\"{key}\"\\s*:\\s*\"([^\"]*)\"", RegexOptions.IgnoreCase);
+            if (string.IsNullOrEmpty(json)) return defaultVal;
+            Match m = Regex.Match(json, "\"" + key + "\"\\s*:\\s*\"([^\"]*)\"", RegexOptions.IgnoreCase);
             return m.Success ? m.Groups[1].Value : defaultVal;
         }
 
-        private static float ReadFloat(string json, string key, float defaultVal)
+        public static float ReadFloat(string json, string key, float defaultVal)
         {
-            var m = Regex.Match(json, $"\"{key}\"\\s*:\\s*([-+]?[0-9]*\\.?[0-9]+)", RegexOptions.IgnoreCase);
-            if (m.Success && float.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float v))
+            if (string.IsNullOrEmpty(json)) return defaultVal;
+            Match m = Regex.Match(json, "\"" + key + "\"\\s*:\\s*([-+]?[0-9]*\\.?[0-9]+)", RegexOptions.IgnoreCase);
+            float v;
+            if (m.Success && float.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out v))
                 return v;
             return defaultVal;
         }
 
-        private static bool ReadBool(string json, string key, bool defaultVal)
+        public static bool ReadBool(string json, string key, bool defaultVal)
         {
-            var m = Regex.Match(json, $"\"{key}\"\\s*:\\s*(true|false)", RegexOptions.IgnoreCase);
-            if (m.Success && bool.TryParse(m.Groups[1].Value, out bool b))
+            if (string.IsNullOrEmpty(json)) return defaultVal;
+            Match m = Regex.Match(json, "\"" + key + "\"\\s*:\\s*(true|false)", RegexOptions.IgnoreCase);
+            bool b;
+            if (m.Success && bool.TryParse(m.Groups[1].Value, out b))
                 return b;
             return defaultVal;
         }

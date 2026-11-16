@@ -434,6 +434,7 @@ namespace FanControl.PumpPid.Configurator
         private string _configPath;
         private string _statusPath;
         private string _logPath;
+        private PumpPidEventLogger _eventLogger;
 
         private bool _isEnglish;
         private Button _btnLangRu;
@@ -1076,48 +1077,35 @@ namespace FanControl.PumpPid.Configurator
             {
                 _suppressEvents = true;
 
-                // Значения по умолчанию (Setpoint=60°C, Min=25%, Max=75%, Kp=0.4, Ki=0.8, Kd=1.8, Tau=2.0)
-                _txtCustomSensor.Text = "Core Average";
-                _numSetpoint.Value = 60m;
-                _trkSetpoint.Value = 60;
-                _numMinOut.Value = 25m;
-                _numMaxOut.Value = 75m;
-                _numKp.Value = 0.40m;
-                _numKi.Value = 0.80m;
-                _numKd.Value = 1.80m;
-                _numTau.Value = 2.0m;
-                _numSettlingBand.Value = 0.30m;
-                _rbAuto.Checked = true;
-                _rbManual.Checked = false;
-                _numManualOut.Value = 50m;
-                _chkFileLogging.Checked = true;
+                PumpPidConfig cfg = File.Exists(_configPath)
+                    ? PumpPidConfigManager.ParseJson(File.ReadAllText(_configPath, Encoding.UTF8), new PumpPidConfig())
+                    : new PumpPidConfig();
 
-                if (!File.Exists(_configPath)) return;
-                string json = File.ReadAllText(_configPath, Encoding.UTF8);
+                _isEnglish = string.Equals(cfg.UiLanguage ?? "ru", "en", StringComparison.OrdinalIgnoreCase);
+                _txtCustomSensor.Text = string.IsNullOrEmpty(cfg.SourceSensorId) ? "Core Average" : cfg.SourceSensorId;
 
-                string lang = ReadJsonString(json, "UiLanguage", "ru");
-                _isEnglish = string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase);
-
-                _txtCustomSensor.Text = ReadJsonString(json, "SourceSensorId", "Core Average");
-
-                decimal sp = ClampDec((decimal)ReadJsonFloat(json, "SetpointCelsius", 60f), 15m, 95m);
+                decimal sp = ClampDec((decimal)cfg.SetpointCelsius, 15m, 95m);
                 _numSetpoint.Value = sp;
                 _trkSetpoint.Value = (int)Math.Round(sp);
 
-                _numMinOut.Value = ClampDec((decimal)ReadJsonFloat(json, "MinOutputPercent", 25f), 0m, 100m);
-                _numMaxOut.Value = ClampDec((decimal)ReadJsonFloat(json, "MaxOutputPercent", 75f), 0m, 100m);
+                _numMinOut.Value = ClampDec((decimal)cfg.MinOutputPercent, 0m, 100m);
+                _numMaxOut.Value = ClampDec((decimal)cfg.MaxOutputPercent, 0m, 100m);
 
-                _numKp.Value = ClampDec((decimal)ReadJsonFloat(json, "Kp", 0.4f), 0.05m, 50m);
-                _numKi.Value = ClampDec((decimal)ReadJsonFloat(json, "Ki", 0.8f), 0m, 20m);
-                _numKd.Value = ClampDec((decimal)ReadJsonFloat(json, "Kd", 1.8f), 0m, 30m);
-                _numTau.Value = ClampDec((decimal)ReadJsonFloat(json, "DerivativeFilterTau", 2.0f), 0.1m, 20m);
-                _numSettlingBand.Value = ClampDec((decimal)ReadJsonFloat(json, "SettlingBandCelsius", 0.3f), 0.1m, 5.0m);
+                _numKp.Value = ClampDec((decimal)cfg.Kp, 0.05m, 50m);
+                _numKi.Value = ClampDec((decimal)cfg.Ki, 0m, 20m);
+                _numKd.Value = ClampDec((decimal)cfg.Kd, 0m, 30m);
+                _numTau.Value = ClampDec((decimal)cfg.DerivativeFilterTau, 0.1m, 20m);
+                _numSettlingBand.Value = ClampDec((decimal)cfg.SettlingBandCelsius, 0.1m, 5.0m);
 
-                bool isAuto = ReadJsonBool(json, "IsAutoMode", true);
-                _rbAuto.Checked = isAuto;
-                _rbManual.Checked = !isAuto;
-                _numManualOut.Value = ClampDec((decimal)ReadJsonFloat(json, "ManualOutputPercent", 50f), 0m, 100m);
-                _chkFileLogging.Checked = ReadJsonBool(json, "EnableFileLogging", true);
+                _rbAuto.Checked = cfg.IsAutoMode;
+                _rbManual.Checked = !cfg.IsAutoMode;
+                _numManualOut.Value = ClampDec((decimal)cfg.ManualOutputPercent, 0m, 100m);
+                _chkFileLogging.Checked = cfg.EnableFileLogging;
+
+                if (_eventLogger != null)
+                {
+                    _eventLogger.EnableFileLogging = cfg.EnableFileLogging;
+                }
             }
             catch
             {
@@ -1132,113 +1120,24 @@ namespace FanControl.PumpPid.Configurator
         {
             try
             {
-                string oldJson = File.Exists(_configPath) ? File.ReadAllText(_configPath, Encoding.UTF8) : string.Empty;
-
-                string newLang = _isEnglish ? "en" : "ru";
-                string sensorId = (_txtCustomSensor.Text ?? "Core Average").Trim();
-                float newSp = (float)_numSetpoint.Value;
-                float newKp = (float)_numKp.Value;
-                float newKi = (float)_numKi.Value;
-                float newKd = (float)_numKd.Value;
-                float newTau = (float)_numTau.Value;
-                float newMin = (float)_numMinOut.Value;
-                float newMax = (float)_numMaxOut.Value;
-                bool newAuto = _rbAuto.Checked;
-                float newManual = (float)_numManualOut.Value;
-                bool newFileLog = _chkFileLogging.Checked;
-                float newBand = (float)_numSettlingBand.Value;
-
-                var sb = new StringBuilder();
-                sb.AppendLine("{");
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"UiLanguage\": \"{0}\",", newLang));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SourceSensorId\": \"{0}\",", EscapeJson(sensorId)));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SetpointCelsius\": {0:F1},", _numSetpoint.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"Kp\": {0:F2},", _numKp.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"Ki\": {0:F2},", _numKi.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"Kd\": {0:F2},", _numKd.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"DerivativeFilterTau\": {0:F1},", _numTau.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"MinOutputPercent\": {0:F0},", _numMinOut.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"MaxOutputPercent\": {0:F0},", _numMaxOut.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"IsAutoMode\": {0},", newAuto ? "true" : "false"));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"ManualOutputPercent\": {0:F1},", _numManualOut.Value));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"EnableFileLogging\": {0},", newFileLog ? "true" : "false"));
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "  \"SettlingBandCelsius\": {0:F2}", _numSettlingBand.Value));
-                sb.AppendLine("}");
-
-                File.WriteAllText(_configPath, sb.ToString(), Encoding.UTF8);
-
-                // If FanControl is not currently running (so PumpPidConfigManager is offline), write [CONFIG_CHANGE] directly to PumpPidEvents.log
-                bool isPluginLive = File.Exists(_statusPath) && (DateTime.UtcNow - File.GetLastWriteTimeUtc(_statusPath)).TotalSeconds <= 3.0;
-                bool oldFileLog = string.IsNullOrEmpty(oldJson) || ReadJsonBool(oldJson, "EnableFileLogging", true);
-                if (!isPluginLive && (newFileLog || oldFileLog) && !string.IsNullOrEmpty(_logPath))
+                PumpPidConfig nextCfg = new PumpPidConfig
                 {
-                    var diffs = new List<string>();
-                    if (!string.IsNullOrEmpty(oldJson))
-                    {
-                        string oldSensor = ReadJsonString(oldJson, "SourceSensorId", "Core Average");
-                        float oldSp = ReadJsonFloat(oldJson, "SetpointCelsius", 60f);
-                        float oldMin = ReadJsonFloat(oldJson, "MinOutputPercent", 25f);
-                        float oldMax = ReadJsonFloat(oldJson, "MaxOutputPercent", 75f);
-                        float oldKp = ReadJsonFloat(oldJson, "Kp", 0.4f);
-                        float oldKi = ReadJsonFloat(oldJson, "Ki", 0.8f);
-                        float oldKd = ReadJsonFloat(oldJson, "Kd", 1.8f);
-                        float oldTau = ReadJsonFloat(oldJson, "DerivativeFilterTau", 2.0f);
-                        float oldBand = ReadJsonFloat(oldJson, "SettlingBandCelsius", 0.3f);
-                        bool oldAuto = ReadJsonBool(oldJson, "IsAutoMode", true);
-                        float oldManual = ReadJsonFloat(oldJson, "ManualOutputPercent", 50f);
-                        string oldLang = ReadJsonString(oldJson, "UiLanguage", "ru");
+                    UiLanguage = _isEnglish ? "en" : "ru",
+                    SourceSensorId = (_txtCustomSensor.Text ?? "Core Average").Trim(),
+                    SetpointCelsius = (float)_numSetpoint.Value,
+                    Kp = (float)_numKp.Value,
+                    Ki = (float)_numKi.Value,
+                    Kd = (float)_numKd.Value,
+                    DerivativeFilterTau = (float)_numTau.Value,
+                    MinOutputPercent = (float)_numMinOut.Value,
+                    MaxOutputPercent = (float)_numMaxOut.Value,
+                    IsAutoMode = _rbAuto.Checked,
+                    ManualOutputPercent = (float)_numManualOut.Value,
+                    EnableFileLogging = _chkFileLogging.Checked,
+                    SettlingBandCelsius = (float)_numSettlingBand.Value
+                };
 
-                        if (!string.Equals(oldSensor, sensorId, StringComparison.Ordinal))
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Sensor: '{0}' -> '{1}'", oldSensor, sensorId));
-                        if (Math.Abs(oldSp - newSp) > 0.001f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Setpoint: {0:F1}°C -> {1:F1}°C", oldSp, newSp));
-                        if (Math.Abs(oldMin - newMin) > 0.001f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "MinOutput: {0:F0}% -> {1:F0}%", oldMin, newMin));
-                        if (Math.Abs(oldMax - newMax) > 0.001f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "MaxOutput: {0:F0}% -> {1:F0}%", oldMax, newMax));
-                        if (Math.Abs(oldKp - newKp) > 0.0001f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Kp: {0:F2} -> {1:F2}", oldKp, newKp));
-                        if (Math.Abs(oldKi - newKi) > 0.0001f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Ki: {0:F2} -> {1:F2}", oldKi, newKi));
-                        if (Math.Abs(oldKd - newKd) > 0.0001f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Kd: {0:F2} -> {1:F2}", oldKd, newKd));
-                        if (Math.Abs(oldTau - newTau) > 0.001f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Tau: {0:F1}s -> {1:F1}s", oldTau, newTau));
-                        if (Math.Abs(oldBand - newBand) > 0.001f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "SettlingBand: ±{0:F2}°C -> ±{1:F2}°C", oldBand, newBand));
-                        if (oldAuto != newAuto)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "Mode: {0} -> {1}", oldAuto ? "AUTO" : "MANUAL", newAuto ? "AUTO" : "MANUAL"));
-                        if (Math.Abs(oldManual - newManual) > 0.01f)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "ManualOutput: {0:F1}% -> {1:F1}%", oldManual, newManual));
-                        if (oldFileLog != newFileLog)
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "EnableFileLogging: {0} -> {1}", oldFileLog ? "true" : "false", newFileLog ? "true" : "false"));
-                        if (!string.Equals(oldLang, newLang, StringComparison.OrdinalIgnoreCase))
-                            diffs.Add(string.Format(CultureInfo.InvariantCulture, "UiLanguage: '{0}' -> '{1}'", oldLang, newLang));
-                    }
-
-                    if (diffs.Count > 0 || string.IsNullOrEmpty(oldJson))
-                    {
-                        string activeSummary = string.Format(
-                            CultureInfo.InvariantCulture,
-                            "Sensor='{0}', Setpoint={1:F1}°C, Range=[{2:F0}..{3:F0}%], Kp={4:F2}, Ki={5:F2}, Kd={6:F2}, Tau={7:F1}s, Band=±{8:F2}°C, Mode={9}, Manual={10:F1}%, FileLog={11}",
-                            sensorId, newSp, newMin, newMax, newKp, newKi, newKd, newTau, newBand,
-                            newAuto ? "AUTO" : "MANUAL", newManual,
-                            newFileLog ? "true" : "false");
-
-                        string msg = diffs.Count > 0
-                            ? string.Format(CultureInfo.InvariantCulture, "Configuration updated [{0}] | Active: {1}", string.Join(", ", diffs), activeSummary)
-                            : ("Configuration saved: " + activeSummary);
-
-                        string line = string.Format(CultureInfo.InvariantCulture, "{0:yyyy-MM-dd HH:mm:ss.fff} [CONFIG_CHANGE] {1}{2}", DateTime.Now, msg, Environment.NewLine);
-                        try
-                        {
-                            File.AppendAllText(_logPath, line, Encoding.UTF8);
-                        }
-                        catch
-                        {
-                        }
-                    }
-                }
+                PumpPidConfigManager.SaveAndLogChanges(_configPath, nextCfg, _eventLogger);
 
                 _lastSavedTimeStr = DateTime.Now.ToString("HH:mm:ss");
                 UpdateSaveStatusText();
@@ -1255,6 +1154,7 @@ namespace FanControl.PumpPid.Configurator
             _configPath = Path.Combine(pluginsDir, "PumpPidConfig.json");
             _statusPath = Path.Combine(pluginsDir, "PumpPidLiveStatus.json");
             _logPath = Path.Combine(pluginsDir, "PumpPidEvents.log");
+            _eventLogger = new PumpPidEventLogger(null, _logPath, true);
         }
 
         private void PollLiveStatus()

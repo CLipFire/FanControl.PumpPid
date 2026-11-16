@@ -101,7 +101,7 @@ namespace FanControl.PumpPid
             string logPath = Path.Combine(assemblyDir, "PumpPidEvents.log");
             _statusFilePath = Path.Combine(assemblyDir, "PumpPidLiveStatus.json");
 
-            _eventLogger = new PumpPidEventLogger(_logger!, logPath, enableFileLogging: true);
+            _eventLogger = new PumpPidEventLogger(_logger != null ? new Action<string>(_logger.Log) : null, logPath, enableFileLogging: true);
             _configManager = new PumpPidConfigManager(configPath, _eventLogger);
             _configManager.Initialize();
 

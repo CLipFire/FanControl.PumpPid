@@ -114,11 +114,15 @@ try {
     }
 
     $TempGuiCs = Join-Path $TempBuildDir "PumpPidConfigurator.cs"
+    $TempConfigCs = Join-Path $TempBuildDir "PumpPidConfig.cs"
+    $TempLoggerCs = Join-Path $TempBuildDir "PumpPidEventLogger.cs"
     $TempGuiExe = Join-Path $TempBuildDir "PumpPidConfigurator.exe"
     if (Test-Path $cscPath) {
-        $guiCode = Get-Content -Path $TempGuiCs -Raw -Encoding UTF8
-        [System.IO.File]::WriteAllText($TempGuiCs, $guiCode, (New-Object System.Text.UTF8Encoding($true)))
-        & $cscPath /nologo /target:winexe /platform:anycpu /optimize+ "/out:$TempGuiExe" /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll $TempGuiCs
+        foreach ($csPath in @($TempGuiCs, $TempConfigCs, $TempLoggerCs)) {
+            $csContent = Get-Content -Path $csPath -Raw -Encoding UTF8
+            [System.IO.File]::WriteAllText($csPath, $csContent, (New-Object System.Text.UTF8Encoding($true)))
+        }
+        & $cscPath /nologo /target:winexe /platform:anycpu /optimize+ "/out:$TempGuiExe" /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll $TempGuiCs $TempConfigCs $TempLoggerCs
         if ($LASTEXITCODE -ne 0) {
             throw "csc.exe failed to compile PumpPidConfigurator.exe (exit code $LASTEXITCODE)"
         }
@@ -157,16 +161,42 @@ try {
 
     Get-ChildItem -LiteralPath $PluginsDir -Filter "*PumpPid*" | Unblock-File -ErrorAction SilentlyContinue
 
+    $InstalledExe = Join-Path $PluginsDir "PumpPidConfigurator.exe"
+    $ShortcutPath = $null
+    if (Test-Path $InstalledExe) {
+        try {
+            $DesktopDir = [Environment]::GetFolderPath("Desktop")
+            if ([string]::IsNullOrWhiteSpace($DesktopDir) -or -not (Test-Path $DesktopDir)) {
+                $DesktopDir = Join-Path $env:USERPROFILE "Desktop"
+            }
+            if (Test-Path $DesktopDir) {
+                $ShortcutPath = Join-Path $DesktopDir "Pump PID Configurator.lnk"
+                $WshShell = New-Object -ComObject WScript.Shell
+                $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+                $Shortcut.TargetPath = $InstalledExe
+                $Shortcut.Arguments = '"' + $PluginsDir + '"'
+                $Shortcut.WorkingDirectory = $PluginsDir
+                $Shortcut.Description = "FanControl Pump PID Controller & Oscilloscope Configurator"
+                $Shortcut.IconLocation = "$InstalledExe,0"
+                $Shortcut.Save()
+            }
+        } catch {
+            Write-Host "[!] Could not create Desktop shortcut: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+
     Write-Host "[4/4] Installed cleanly into: $PluginsDir" -ForegroundColor Green
     Write-Host "      - FanControl.PumpPid.dll" -ForegroundColor White
     Write-Host "      - PumpPidConfigurator.exe (RU / EN)" -ForegroundColor White
     Write-Host "      - PumpPidConfig.json" -ForegroundColor White
+    if ($ShortcutPath -and (Test-Path $ShortcutPath)) {
+        Write-Host "      - Desktop Shortcut: $ShortcutPath" -ForegroundColor Cyan
+    }
     Write-Host ""
     Write-Host "==================================================================" -ForegroundColor Green
     Write-Host " INSTALLATION COMPLETE! (Temporary build files removed)" -ForegroundColor Green
     Write-Host "==================================================================" -ForegroundColor Green
 
-    $InstalledExe = Join-Path $PluginsDir "PumpPidConfigurator.exe"
     if (Test-Path $InstalledExe) {
         Start-Process -FilePath $InstalledExe -ArgumentList ('"' + $PluginsDir + '"')
     }

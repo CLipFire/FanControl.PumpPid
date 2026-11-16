@@ -2,14 +2,14 @@
   "UiLanguage": "ru",
   "SourceSensorId": "Core Average",
   "SetpointCelsius": 60,
-  "Kp": 0.4,
-  "Ki": 0.8,
-  "Kd": 1.8,
+  "Kp": 0.2,
+  "Ki": 0.4,
+  "Kd": 1.2,
   "DerivativeFilterTau": 2,
   "MinOutputPercent": 25,
   "MaxOutputPercent": 75,
   "IsAutoMode": true,
   "ManualOutputPercent": 25,
   "EnableFileLogging": true,
-  "SettlingBandCelsius": 0.3
+  "SettlingBandCelsius": 0.5
 }
